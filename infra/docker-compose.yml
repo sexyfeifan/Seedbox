@@ -1,0 +1,38 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: seedbox-postgres
+    environment:
+      POSTGRES_USER: seedbox
+      POSTGRES_PASSWORD: seedbox
+      POSTGRES_DB: seedbox
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7
+    container_name: seedbox-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  minio:
+    image: minio/minio:latest
+    container_name: seedbox-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: seedbox
+      MINIO_ROOT_PASSWORD: seedbox123
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+
+volumes:
+  pg_data:
+  redis_data:
+  minio_data:

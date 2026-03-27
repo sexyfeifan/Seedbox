@@ -1,0 +1,44 @@
+services:
+  backend:
+    image: ${BACKEND_IMAGE:-seedbox/backend:local}
+    build:
+      context: ../apps/backend
+    container_name: seedbox-backend
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 12333
+      STORE_DRIVER: ${STORE_DRIVER:-memory}
+      MEMORY_STORE_PERSIST_PATH: ${MEMORY_STORE_PERSIST_PATH:-/data/memory-store.json}
+      MEMORY_STORE_PERSIST_DEBOUNCE_MS: ${MEMORY_STORE_PERSIST_DEBOUNCE_MS:-800}
+      ASSET_CACHE_DIR: ${ASSET_CACHE_DIR:-/data/asset_cache}
+      SITE_ICON_CACHE_DIR: ${SITE_ICON_CACHE_DIR:-/data/site_icon_cache}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://seedbox:seedbox@postgres:5432/seedbox}
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-seedbox-dev-token}
+      CLIENT_ACCESS_TOKEN: ${CLIENT_ACCESS_TOKEN:-}
+      WORKER_POLL_INTERVAL_MS: ${WORKER_POLL_INTERVAL_MS:-3000}
+    ports:
+      - "12333:12333"
+    volumes:
+      - ../.runtime/backend-data:/data
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:12333/v1/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  parser_worker:
+    image: ${PARSER_IMAGE:-seedbox/parser-worker:local}
+    build:
+      context: ../apps/parser_worker
+    container_name: seedbox-parser-worker
+    environment:
+      NODE_ENV: production
+      WORKER_MODE: api
+      API_BASE_URL: http://backend:12333
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-seedbox-dev-token}
+      WORKER_POLL_INTERVAL_MS: ${WORKER_POLL_INTERVAL_MS:-3000}
+      ENABLE_PLAYWRIGHT_FALLBACK: ${ENABLE_PLAYWRIGHT_FALLBACK:-false}
+    depends_on:
+      backend:
+        condition: service_healthy

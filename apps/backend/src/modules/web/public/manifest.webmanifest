@@ -1,0 +1,24 @@
+{
+  "name": "Seedbox Capture",
+  "short_name": "Seedbox",
+  "start_url": "/app",
+  "scope": "/app",
+  "display": "standalone",
+  "background_color": "#f5f6ee",
+  "theme_color": "#1f8b5b",
+  "description": "收藏、解析与离线阅读工作台",
+  "icons": [
+    {
+      "src": "/app/icon-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/app/icon-512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

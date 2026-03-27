@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#1f8b5b" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Seedbox" />
+    <link rel="apple-touch-icon" href="/app/icon-192.svg" />
+    <link rel="manifest" href="/app/manifest.webmanifest" />
+    <title>Seedbox Web</title>
+    <link rel="stylesheet" href="/app/main.css" />
+  </head>
+  <body>
+    <div class="bg-shape bg-shape-a"></div>
+    <div class="bg-shape bg-shape-b"></div>
+
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-dot"></div>
+        <div>
+          <h1>Seedbox</h1>
+          <p>Capture and Read</p>
+        </div>
+      </div>
+      <div class="auth-bar">
+        <span id="current-user" class="current-user">本地模式（免登录）</span>
+        <button id="account-settings-btn" class="btn btn-ghost hidden" type="button">账号订阅</button>
+        <button id="install-btn" class="btn btn-ghost hidden" type="button">安装到桌面</button>
+        <button id="refresh-btn" class="btn btn-ghost" type="button">刷新</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <aside class="panel sidebar" id="sidebar-panel">
+        <div class="sidebar-head">
+          <h2 class="sidebar-title">收藏</h2>
+          <button id="sidebar-toggle-btn" class="btn btn-ghost sidebar-toggle-btn" type="button">收起</button>
+        </div>
+        <div class="sidebar-content">
+          <div class="sidebar-sticky-controls">
+            <div class="list-toolbar">
+              <input id="search-input" type="search" placeholder="搜索标题/链接..." />
+              <button id="search-btn" class="btn btn-ghost">搜索</button>
+            </div>
+            <div id="list-filters" class="list-filters hidden">
+              <button class="filter-btn active" data-filter="active" type="button">未归档</button>
+              <button class="filter-btn" data-filter="archived" type="button">已归档</button>
+              <button class="filter-btn" data-filter="all" type="button">全部</button>
+              <button id="purge-archived-btn" class="btn btn-danger hidden" type="button">清空已归档</button>
+            </div>
+            <div id="platform-filters" class="platform-filters"></div>
+            <div class="sidebar-captured-line">已捕获 <strong id="stat-captured">0</strong></div>
+          </div>
+          <div id="bulk-bar" class="bulk-bar hidden">
+            <span id="bulk-count">已选 0 项</span>
+            <button id="bulk-archive-btn" class="btn btn-ghost" type="button">批量归档</button>
+            <button id="bulk-restore-btn" class="btn btn-ghost" type="button">批量恢复</button>
+            <button id="bulk-clear-btn" class="btn btn-ghost" type="button">清空选择</button>
+          </div>
+
+          <div class="quick-capture-wrap">
+            <button id="quick-capture-btn" class="btn btn-primary quick-capture-btn" type="button">识别剪贴板新增收藏</button>
+            <p class="quick-capture-hint">未识别到链接时会弹窗让你手动粘贴</p>
+            <p id="create-status" class="status-text"></p>
+            <div id="capture-progress" class="capture-progress hidden" role="progressbar" aria-valuemin="0" aria-valuemax="100">
+              <span id="capture-progress-bar" class="capture-progress-bar"></span>
+            </div>
+            <p id="capture-progress-text" class="status-text hidden"></p>
+          </div>
+        </div>
+      </aside>
+
+      <section class="panel panel-left">
+        <div id="items-list" class="items-list"></div>
+      </section>
+
+      <section class="panel panel-right">
+        <div id="detail-empty" class="empty">
+          选择一条收藏查看详情
+        </div>
+        <article id="detail-card" class="detail hidden">
+          <header>
+            <div class="meta">
+              <span class="detail-author">
+                <span class="item-avatar-wrap">
+                  <span id="detail-avatar" class="item-avatar">S</span>
+                  <span id="detail-platform-logo" class="item-platform-logo">网</span>
+                </span>
+                <span id="detail-domain"></span>
+              </span>
+              <span id="detail-created-at"></span>
+              <span id="detail-status" class="badge"></span>
+            </div>
+            <div class="detail-title-row">
+              <h2 id="detail-title"></h2>
+              <button id="detail-close-btn" class="btn btn-ghost detail-close-btn" type="button">返回</button>
+            </div>
+          </header>
+          <div class="detail-browse-actions browse-only">
+            <button id="go-edit-btn" class="btn btn-ghost icon-btn" type="button">编辑</button>
+          </div>
+          <section class="edit-panel edit-only hidden">
+            <h3>编辑收藏</h3>
+            <label>
+              标题
+              <input id="detail-edit-title" type="text" placeholder="可留空" />
+            </label>
+            <label>
+              标签（逗号分隔）
+              <input id="detail-edit-tags" type="text" placeholder="旅行, 灵感" />
+            </label>
+            <div class="row">
+              <button id="save-detail-btn" class="btn btn-primary" type="button">保存修改</button>
+              <button id="reparse-btn" class="btn btn-ghost" type="button">重新解析</button>
+              <button id="delete-detail-btn" class="btn btn-danger" type="button">永久删除</button>
+            </div>
+          </section>
+          <section class="summary-panel edit-only hidden">
+            <div class="summary-head">
+              <h3>AI 摘要</h3>
+              <button id="generate-summary-btn" class="btn btn-ghost" type="button">生成摘要</button>
+            </div>
+            <p id="summary-status" class="status-text"></p>
+            <ul id="summary-points" class="summary-points hidden"></ul>
+            <p id="summary-text" class="summary-text hidden"></p>
+          </section>
+          <section id="diagnostics-panel" class="diagnostics-panel edit-only hidden">
+            <div class="summary-head">
+              <h3>解析诊断</h3>
+              <button id="refresh-diagnostics-btn" class="btn btn-ghost" type="button">刷新</button>
+            </div>
+            <div id="diagnostics-progress" class="capture-progress hidden" role="progressbar" aria-valuemin="0" aria-valuemax="100">
+              <span id="diagnostics-progress-bar" class="capture-progress-bar"></span>
+            </div>
+            <p id="diagnostics-status" class="status-text">暂无诊断数据</p>
+          </section>
+          <section id="detail-assets-section" class="asset-panel hidden">
+            <div id="detail-assets-grid" class="asset-grid"></div>
+          </section>
+          <div id="detail-content" class="detail-content-text"></div>
+          <section class="note-panel browse-only">
+            <form id="note-form" class="note-form">
+              <label>
+                <textarea id="note-body" rows="4" placeholder="记录你的灵感、观点或待办"></textarea>
+              </label>
+              <div class="row">
+                <button id="add-note-btn" class="btn btn-primary" type="submit">新增灵感笔记</button>
+              </div>
+            </form>
+            <div id="notes-list" class="notes-list"></div>
+          </section>
+          <section id="detail-edit-toolbar" class="detail-edit-toolbar edit-only hidden">
+            <button id="toolbar-save-btn" class="btn btn-primary" type="button">保存</button>
+            <button id="toolbar-reparse-btn" class="btn btn-ghost" type="button">重抓</button>
+            <button id="toolbar-delete-btn" class="btn btn-danger" type="button">删除</button>
+            <button id="toolbar-cancel-btn" class="btn btn-ghost" type="button">返回浏览</button>
+          </section>
+        </article>
+      </section>
+    </main>
+
+    <div id="image-viewer" class="image-viewer hidden">
+      <button id="image-viewer-close" class="viewer-close" type="button" aria-label="关闭">×</button>
+      <button id="image-viewer-prev" class="viewer-nav viewer-prev" type="button" aria-label="上一张">‹</button>
+      <img id="image-viewer-img" class="viewer-img" alt="image preview" />
+      <video id="image-viewer-video" class="viewer-video hidden" controls playsinline preload="metadata"></video>
+      <button id="image-viewer-next" class="viewer-nav viewer-next" type="button" aria-label="下一张">›</button>
+      <div id="image-viewer-meta" class="viewer-meta"></div>
+    </div>
+
+    <div id="capture-modal" class="capture-modal hidden">
+      <div class="capture-modal-mask"></div>
+      <section class="capture-modal-card">
+        <div class="capture-modal-head">
+          <h3>新增收藏</h3>
+          <button id="capture-modal-close" class="btn btn-ghost" type="button">关闭</button>
+        </div>
+        <form id="capture-form" class="capture-form">
+          <label>
+            链接
+            <input id="source-url" type="text" placeholder="粘贴链接或整段分享文案（自动提取）" required />
+          </label>
+          <label>
+            标题（可选）
+            <input id="title-hint" type="text" placeholder="可留空" />
+          </label>
+          <label>
+            标签（逗号分隔）
+            <input id="tags" type="text" placeholder="ai, product" />
+          </label>
+          <div class="row">
+            <button id="paste-detect-btn" class="btn btn-ghost" type="button">重新识别剪贴板</button>
+            <button id="capture-cancel-btn" class="btn btn-ghost" type="button">取消</button>
+            <button type="submit" class="btn btn-primary">保存</button>
+          </div>
+        </form>
+      </section>
+    </div>
+
+    <div id="account-modal" class="capture-modal hidden">
+      <div class="capture-modal-mask"></div>
+      <section class="capture-modal-card account-modal-card">
+        <div class="capture-modal-head">
+          <h3>账号与订阅</h3>
+          <button id="account-modal-close" class="btn btn-ghost" type="button">关闭</button>
+        </div>
+        <p id="account-auth-status" class="status-text">商业模式下可使用邮箱验证码登录。</p>
+        <form id="account-login-form" class="capture-form">
+          <label>
+            邮箱
+            <input id="account-email" type="email" placeholder="name@example.com" autocomplete="email" />
+          </label>
+          <label>
+            昵称（可选）
+            <input id="account-display-name" type="text" placeholder="你的昵称" autocomplete="nickname" />
+          </label>
+          <label>
+            验证码
+            <input id="account-code" type="text" inputmode="numeric" maxlength="6" placeholder="6 位数字验证码" />
+          </label>
+          <div class="row">
+            <button id="account-request-code-btn" class="btn btn-ghost" type="button">发送验证码</button>
+            <button id="account-login-btn" class="btn btn-primary" type="submit">登录</button>
+            <button id="account-logout-btn" class="btn btn-ghost hidden" type="button">退出登录</button>
+          </div>
+        </form>
+        <section class="billing-card">
+          <div class="billing-head">
+            <h3>订阅状态</h3>
+            <button id="billing-refresh-btn" class="btn btn-ghost" type="button">刷新</button>
+          </div>
+          <p id="account-user-line" class="status-text">未登录</p>
+          <p id="billing-plan-line" class="status-text">当前方案：Free</p>
+          <p id="billing-status-line" class="status-text">状态：未开通</p>
+          <p id="billing-error" class="status-text hidden"></p>
+          <div class="billing-actions">
+            <button id="billing-subscribe-btn" class="btn btn-primary" type="button">升级到 Pro</button>
+            <button id="billing-cancel-btn" class="btn btn-ghost" type="button">取消订阅</button>
+          </div>
+        </section>
+      </section>
+    </div>
+
+    <button id="back-to-top-btn" class="btn btn-ghost back-to-top-btn hidden" type="button">回到顶部</button>
+
+    <script src="/app/main.js" type="module"></script>
+  </body>
+</html>

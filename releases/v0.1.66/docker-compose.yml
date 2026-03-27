@@ -1,0 +1,54 @@
+services:
+  seedbox-backend:
+    image: sexyfeifan/seedbox-backend:v0.1.66
+    container_name: seedbox-backend
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Shanghai
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 12333
+      STORE_DRIVER: memory
+      MEMORY_STORE_PERSIST_PATH: /data/memory-store.json
+      MEMORY_STORE_PERSIST_DEBOUNCE_MS: 800
+      ASSET_CACHE_DIR: /data/asset_cache
+      SITE_ICON_CACHE_DIR: /data/site_icon_cache
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-seedbox-dev-token}
+      CLIENT_ACCESS_TOKEN: ${CLIENT_ACCESS_TOKEN:-}
+      COMMERCIAL_MODE_ENABLED: ${COMMERCIAL_MODE_ENABLED:-false}
+      SEEDBOX_RELEASE_VERSION: ${SEEDBOX_RELEASE_VERSION:-v0.1.66}
+      SEEDBOX_BACKEND_VERSION: ${SEEDBOX_BACKEND_VERSION:-v0.1.66}
+      SEEDBOX_PARSER_VERSION: ${SEEDBOX_PARSER_VERSION:-v0.1.66}
+      CAPTURE_RESOLVE_TIMEOUT_MS: ${CAPTURE_RESOLVE_TIMEOUT_MS:-12000}
+      ASSET_FETCH_TIMEOUT_MS: ${ASSET_FETCH_TIMEOUT_MS:-30000}
+      EXTRA_NOISE_ASSET_PATTERNS: ${EXTRA_NOISE_ASSET_PATTERNS:-}
+    ports:
+      - "${SEEDBOX_HOST_PORT:-12333}:12333"
+    volumes:
+      - ./data/backend:/data
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:12333/v1/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  seedbox-parser-worker:
+    image: sexyfeifan/seedbox-parser-worker:v0.1.66
+    container_name: seedbox-parser-worker
+    restart: unless-stopped
+    depends_on:
+      - seedbox-backend
+    environment:
+      TZ: Asia/Shanghai
+      NODE_ENV: production
+      WORKER_MODE: api
+      API_BASE_URL: http://seedbox-backend:12333
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-seedbox-dev-token}
+      SEEDBOX_PARSER_VERSION: ${SEEDBOX_PARSER_VERSION:-v0.1.66}
+      WORKER_POLL_INTERVAL_MS: 3000
+      ENABLE_PLAYWRIGHT_FALLBACK: "true"
+      DOUBAN_MIN_REQUEST_INTERVAL_MS: ${DOUBAN_MIN_REQUEST_INTERVAL_MS:-4000}
+      DOUBAN_REQUEST_JITTER_MS: ${DOUBAN_REQUEST_JITTER_MS:-1200}
+      DOUBAN_COOKIE: ${DOUBAN_COOKIE:-}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

@@ -1,0 +1,42 @@
+# macOS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+
+# Logs
+*.log
+
+# Runtime / cache
+.runtime/
+apps/backend/.runtime/
+
+# Node
+node_modules/
+dist/
+coverage/
+
+# Flutter / Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+apps/mobile_flutter/build
+
+# Release artifacts
+releases/*.tar.gz
+releases/**/*.ipa
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Local env
+.env
+.env.*
+!.env.template
+!infra/.env.template
+!releases/**/.env.template
