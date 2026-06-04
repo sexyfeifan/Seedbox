@@ -1,4 +1,4 @@
-const DEFAULT_RELEASE_VERSION = "v0.1.67";
+const DEFAULT_RELEASE_VERSION = "v0.1.68";
 
 function normalizeVersion(raw: string | undefined, fallback: string): string {
   const value = (raw ?? "").trim();
