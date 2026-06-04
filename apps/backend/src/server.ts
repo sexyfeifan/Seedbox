@@ -62,7 +62,10 @@ export async function buildServer() {
     }
   });
 
-  app.register(cors, { origin: true, credentials: true });
+  const allowedOrigins = process.env.CORS_ORIGIN
+    ? process.env.CORS_ORIGIN.split(",").map((s) => s.trim()).filter(Boolean)
+    : true;
+  app.register(cors, { origin: allowedOrigins, credentials: true });
   app.register(sensible);
 
   const clientAccessToken = (process.env.CLIENT_ACCESS_TOKEN ?? "").trim();

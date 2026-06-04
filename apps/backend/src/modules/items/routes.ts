@@ -239,7 +239,7 @@ export const itemRoutes: FastifyPluginAsync = async (app) => {
       reply.header("cache-control", "public, max-age=31536000, immutable");
       reply.header(
         "content-disposition",
-        `${shouldDownload ? "attachment" : "inline"}; filename="${cached.fileName.replaceAll("\"", "")}"`
+        `${shouldDownload ? "attachment" : "inline"}; filename="${cached.fileName.replaceAll("\"", "").replaceAll("\n", "").replaceAll("\r", "").replaceAll(";", "")}"`
       );
       return reply.send(createReadStream(cached.filePath));
     } catch (error) {

@@ -2,9 +2,11 @@ import type { FastifyRequest } from "fastify";
 import { isUuid, verifyAccessToken } from "./auth.js";
 
 const DEMO_USER_ID = "00000000-0000-0000-0000-000000000001";
-const DEV_AUTH_BYPASS_ENABLED =
-  process.env.ALLOW_DEV_AUTH_BYPASS === "true" ||
-  (process.env.ALLOW_DEV_AUTH_BYPASS === undefined && process.env.NODE_ENV !== "production");
+const DEV_AUTH_BYPASS_ENABLED = process.env.ALLOW_DEV_AUTH_BYPASS === "true";
+
+if (DEV_AUTH_BYPASS_ENABLED && process.env.NODE_ENV === "production") {
+  console.warn("[seedbox] WARNING: ALLOW_DEV_AUTH_BYPASS is enabled in production. This is insecure.");
+}
 
 export interface ResolvedUser {
   id: string;

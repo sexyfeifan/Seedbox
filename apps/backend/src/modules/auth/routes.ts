@@ -16,6 +16,16 @@ const pendingCodes = new Map<
   }
 >();
 
+// Cleanup expired codes every 5 minutes to prevent memory leak
+setInterval(() => {
+  const now = Date.now();
+  for (const [email, entry] of pendingCodes) {
+    if (entry.expiresAt < now) {
+      pendingCodes.delete(email);
+    }
+  }
+}, 5 * 60 * 1000);
+
 const requestCodeSchema = z.object({
   email: z.string().email(),
   displayName: z.string().trim().min(1).max(80).optional()
@@ -43,7 +53,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
       displayName: body.displayName
     });
 
-    app.log.info({ email, code, expiresAt }, "Generated auth code");
+    app.log.info({ email, expiresAt }, "Generated auth code");
 
     return {
       ok: true,

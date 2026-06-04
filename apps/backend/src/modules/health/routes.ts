@@ -24,7 +24,10 @@ export const healthRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.get("/v1/health/errors", async (request, reply) => {
-    const internalToken = process.env.INTERNAL_API_TOKEN ?? "seedbox-dev-token";
+    const internalToken = process.env.INTERNAL_API_TOKEN;
+    if (!internalToken) {
+      return reply.status(403).send({ error: "INTERNAL_API_TOKEN not configured" });
+    }
     const headerToken = request.headers["x-internal-token"];
     const token = Array.isArray(headerToken) ? headerToken[0] : headerToken;
 

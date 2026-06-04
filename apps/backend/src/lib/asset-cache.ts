@@ -647,6 +647,14 @@ function isPrivateHost(hostname: string): boolean {
     if (a === 172 && b >= 16 && b <= 31) {
       return true;
     }
+    // Link-local (169.254.x.x)
+    if (a === 169 && b === 254) {
+      return true;
+    }
+    // CGNAT (100.64-127.x.x)
+    if (a === 100 && b >= 64 && b <= 127) {
+      return true;
+    }
     return false;
   }
   if (ipKind === 6) {

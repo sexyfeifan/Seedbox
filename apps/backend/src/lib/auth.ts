@@ -1,7 +1,19 @@
 import crypto from "node:crypto";
 import jwt from "jsonwebtoken";
 
-const JWT_SECRET = process.env.JWT_SECRET ?? "seedbox-dev-jwt-secret";
+const JWT_SECRET = resolveJwtSecret();
+
+function resolveJwtSecret(): string {
+  const env = process.env.JWT_SECRET;
+  if (env && env.trim().length > 0) {
+    return env;
+  }
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("JWT_SECRET must be set in production. Aborting.");
+  }
+  console.warn("[seedbox] JWT_SECRET not set — using insecure dev default. Set JWT_SECRET in production.");
+  return "seedbox-dev-jwt-secret";
+}
 const ACCESS_TOKEN_EXPIRES_IN_SECONDS = Number(process.env.ACCESS_TOKEN_EXPIRES_IN_SECONDS ?? 900); // 15m
 const REFRESH_TOKEN_EXPIRES_IN_SECONDS = Number(process.env.REFRESH_TOKEN_EXPIRES_IN_SECONDS ?? 2592000); // 30d
 const UUID_NAMESPACE = "seedbox-auth-namespace-v1";

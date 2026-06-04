@@ -28,7 +28,19 @@ const failBodySchema = z.object({
   reason: z.string().min(1).max(2000)
 });
 
-const INTERNAL_TOKEN = process.env.INTERNAL_API_TOKEN ?? "seedbox-dev-token";
+const INTERNAL_TOKEN = resolveInternalToken();
+
+function resolveInternalToken(): string {
+  const env = process.env.INTERNAL_API_TOKEN;
+  if (env && env.trim().length > 0) {
+    return env;
+  }
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("INTERNAL_API_TOKEN must be set in production. Aborting.");
+  }
+  console.warn("[seedbox] INTERNAL_API_TOKEN not set — using insecure dev default. Set it in production.");
+  return "seedbox-dev-token";
+}
 
 function isAuthorized(tokenValue: unknown): boolean {
   return typeof tokenValue === "string" && tokenValue === INTERNAL_TOKEN;
