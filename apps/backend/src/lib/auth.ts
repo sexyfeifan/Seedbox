@@ -1,18 +1,25 @@
 import crypto from "node:crypto";
 import jwt from "jsonwebtoken";
 
-const JWT_SECRET = resolveJwtSecret();
+let _jwtSecret: string | null = null;
 
-function resolveJwtSecret(): string {
+function getJwtSecret(): string {
+  if (_jwtSecret) return _jwtSecret;
   const env = process.env.JWT_SECRET;
   if (env && env.trim().length > 0) {
-    return env;
+    _jwtSecret = env;
+    return _jwtSecret;
   }
   if (process.env.NODE_ENV === "production") {
-    throw new Error("JWT_SECRET must be set in production. Aborting.");
+    // In production without commercial mode, this won't be called
+    // If it IS called (commercial mode enabled), throw
+    if (process.env.COMMERCIAL_MODE_ENABLED === "true") {
+      throw new Error("JWT_SECRET must be set in production with commercial mode. Aborting.");
+    }
   }
   console.warn("[seedbox] JWT_SECRET not set — using insecure dev default. Set JWT_SECRET in production.");
-  return "seedbox-dev-jwt-secret";
+  _jwtSecret = "seedbox-dev-jwt-secret";
+  return _jwtSecret;
 }
 const ACCESS_TOKEN_EXPIRES_IN_SECONDS = Number(process.env.ACCESS_TOKEN_EXPIRES_IN_SECONDS ?? 900); // 15m
 const REFRESH_TOKEN_EXPIRES_IN_SECONDS = Number(process.env.REFRESH_TOKEN_EXPIRES_IN_SECONDS ?? 2592000); // 30d
@@ -51,11 +58,11 @@ export function issueTokenPair(identity: AuthIdentity): TokenPair {
     typ: "refresh"
   };
 
-  const accessToken = jwt.sign(accessPayload, JWT_SECRET, {
+  const accessToken = jwt.sign(accessPayload, getJwtSecret(), {
     algorithm: "HS256",
     expiresIn: `${ACCESS_TOKEN_EXPIRES_IN_SECONDS}s`
   });
-  const refreshToken = jwt.sign(refreshPayload, JWT_SECRET, {
+  const refreshToken = jwt.sign(refreshPayload, getJwtSecret(), {
     algorithm: "HS256",
     expiresIn: `${REFRESH_TOKEN_EXPIRES_IN_SECONDS}s`
   });
@@ -95,7 +102,7 @@ export function verifyRefreshToken(token: string): AuthIdentity | null {
 
 function verifyToken(token: string): (AuthIdentity & { typ: "access" | "refresh" }) | null {
   try {
-    const payload = jwt.verify(token, JWT_SECRET, { algorithms: ["HS256"] }) as jwt.JwtPayload;
+    const payload = jwt.verify(token, getJwtSecret(), { algorithms: ["HS256"] }) as jwt.JwtPayload;
     const sub = typeof payload.sub === "string" ? payload.sub : "";
     if (!isUuid(sub)) {
       return null;
