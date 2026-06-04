@@ -51,14 +51,30 @@
 
 ## 🚀 最新版本
 
-- 当前整理完成版本：`v0.1.67`
+- 当前版本：`v0.1.68`
 - Docker 镜像：
-  - `sexyfeifan/seedbox-backend:v0.1.67`
-  - `sexyfeifan/seedbox-parser-worker:v0.1.67`
+  - `sexyfeifan/seedbox-backend:v0.1.68`
+  - `sexyfeifan/seedbox-parser-worker:v0.1.68`
 - 最新发布目录：
-  - `releases/v0.1.67/docker-compose.yml`
-  - `releases/v0.1.67/docker-compose.annotated.yml`
-  - `releases/v0.1.67/.env.template`
+  - `releases/v0.1.68/docker-compose.yml`
+  - `releases/v0.1.68/.env.template`
+
+---
+
+## 🎨 v0.1.68 更新亮点
+
+### 动森风格 Web UI
+- 暖色羊皮纸背景 + 药丸形按钮 + 触觉阴影（3D 按压感）
+- Nunito 圆润字体 + 暖棕色文字（无纯黑）
+- 薄荷青主色 + 黄色 focus 环 + 柔蓝侧边栏选中态
+- 叶子分隔线装饰元素
+
+### 安全修复
+- 验证码不再写入日志
+- SSRF 防护新增链路本地和 CGNAT 地址段
+- Content-Disposition 头注入防护
+- CORS 支持配置来源域名
+- JWT_SECRET 仅商业模式需要（自用可不设）
 
 ---
 
@@ -66,16 +82,15 @@
 
 ### 1）准备文件
 
-推荐直接使用发布目录里的这 2 个文件：
+推荐直接使用发布目录里的文件：
 
-- 中文注释版 compose：`releases/v0.1.67/docker-compose.annotated.yml`
-- 中文注释版环境变量模板：`releases/v0.1.67/.env.template`
+- compose 文件：`releases/v0.1.68/docker-compose.yml`
+- 环境变量模板：`releases/v0.1.68/.env.template`
 
 建议做法：
 
-1. 把 `docker-compose.annotated.yml` 复制为 `docker-compose.yml`
-2. 把 `.env.template` 复制为 `.env`
-3. 把这两个文件放在同一个目录
+1. 把 `docker-compose.yml` 复制到你的部署目录
+2. 如需自定义配置，把 `.env.template` 复制为 `.env` 并修改（可选，不设 `.env` 也能运行）
 
 ### 2）重点修改这几项
 
@@ -321,6 +336,14 @@ WORKER_MODE=api API_BASE_URL=http://127.0.0.1:12333 node dist/main.js
 
 ## 📦 版本与发布
 
+### `v0.1.68`
+
+- Web UI 全面采用动森风格（Animal Crossing Island Theme）
+- 暖色药丸按钮、触觉阴影、Nunito 字体、叶子装饰
+- 安全修复：验证码日志、SSRF 防护、Content-Disposition 注入、CORS 配置
+- JWT_SECRET 改为懒加载，自用部署可不设置
+- 不需要 `.env` 文件也能直接运行
+
 ### `v0.1.67`
 
 - 新抓取的媒体缓存直接落为真实扩展名，NAS 中更容易识别
@@ -348,8 +371,8 @@ WORKER_MODE=api API_BASE_URL=http://127.0.0.1:12333 node dist/main.js
 
 ---
 
-如果你只是想 **最快部署最新版本**，直接看这三个文件就够了：
+如果你只是想 **最快部署最新版本**，只需要一个文件就够了：
 
-- `releases/v0.1.67/docker-compose.annotated.yml`
-- `releases/v0.1.67/.env.template`
-- `releases/v0.1.67/docker-compose.yml`
+- `releases/v0.1.68/docker-compose.yml`
+
+把你的挂载路径改一下，然后 `docker compose up -d` 即可。
