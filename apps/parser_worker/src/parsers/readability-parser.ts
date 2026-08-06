@@ -279,6 +279,23 @@ function extractImageAssets(
       height: candidate.height
     }));
   }
+  if (isXhsHostFromUrl(sourceUrl)) {
+    const avatarCandidates = xhsOrdered.filter((candidate) => isAvatarAssetUrl(candidate.url)).slice(0, 1);
+    const contentCandidates = xhsOrdered
+      .filter((candidate) => !isAvatarAssetUrl(candidate.url))
+      .filter((candidate) => isLikelyXhsContentImageUrl(candidate.url))
+      .slice(0, 12);
+    const selected = (avatarCandidates.length > 0 || contentCandidates.length > 0
+      ? [...avatarCandidates, ...contentCandidates]
+      : xhsOrdered
+    ).slice(0, MAX_PARSED_ASSETS);
+    return selected.map((candidate) => ({
+      type: "image",
+      url: candidate.url,
+      width: candidate.width,
+      height: candidate.height
+    }));
+  }
   if (isDouyinHostFromUrl(sourceUrl)) {
     const avatarCandidates = xhsOrdered.filter((candidate) => isDouyinAvatarUrl(candidate.url)).slice(0, 1);
     const contentCandidates = xhsOrdered
@@ -3227,7 +3244,11 @@ function extractStableMediaId(input: string): string | null {
 
 function collectImageTagCandidates(document: Document, sourceUrl: string, output: AssetCandidate[]): void {
   const images = document.querySelectorAll("img");
+  const isXhs = isXhsHostFromUrl(sourceUrl);
   for (const image of images) {
+    if (isXhs && isInsideXhsCommentSection(image)) {
+      continue;
+    }
     const width = parsePositiveInt(image.getAttribute("width"));
     const height = parsePositiveInt(image.getAttribute("height"));
     const values = [
@@ -3719,6 +3740,41 @@ function isXhsHostFromUrl(sourceUrl: string): boolean {
   } catch {
     return false;
   }
+}
+
+function isLikelyXhsContentImageUrl(url: string): boolean {
+  const lower = String(url || "").toLowerCase();
+  if (!lower) return false;
+  if (isAvatarAssetUrl(lower)) return false;
+  if (lower.includes("/comment/")) return false;
+  if (/(?:icon|logo|sprite|emoji|sticker|badge|avatar)/i.test(lower)) return false;
+  if (lower.includes("sns-webpic") || lower.includes("sns-img") || lower.includes("ci.xiaohongshu.com")) return true;
+  if (lower.includes("/note_pre_post/") || lower.includes("/notes_pre_post/") || lower.includes("/notes_post/")) return true;
+  if (/\.(jpg|jpeg|png|webp|gif|avif)(?:$|[?#])/i.test(lower)) return true;
+  return false;
+}
+
+function isInsideXhsCommentSection(element: Element): boolean {
+  let current: Element | null = element;
+  let depth = 0;
+  while (current && depth < 15) {
+    const className = String(current.getAttribute("class") || "").toLowerCase();
+    const id = String(current.getAttribute("id") || "").toLowerCase();
+    const dataTestId = String(current.getAttribute("data-testid") || "").toLowerCase();
+    if (
+      className.includes("comment") ||
+      className.includes("reply") ||
+      className.includes("interact") ||
+      id.includes("comment") ||
+      id.includes("reply") ||
+      dataTestId.includes("comment")
+    ) {
+      return true;
+    }
+    current = current.parentElement;
+    depth++;
+  }
+  return false;
 }
 
 function isDouyinHostFromUrl(sourceUrl: string): boolean {
