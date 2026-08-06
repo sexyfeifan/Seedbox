@@ -24,7 +24,7 @@ export type CaptureFlow = {
 };
 
 const PLATFORM_RULES: Array<{ hosts: string[]; kind: PlatformKind; platform: PlatformName }> = [
-  { hosts: ["xhslink.com", "xiaohongshu.com", "xhscdn.com"], kind: "social", platform: "xiaohongshu" },
+  { hosts: ["xhslink.com", "xhslink.cn", "xiaohongshu.com", "xhscdn.com"], kind: "social", platform: "xiaohongshu" },
   { hosts: ["douyin.com", "iesdouyin.com"], kind: "social", platform: "douyin" },
   { hosts: ["weibo.com", "weibo.cn"], kind: "social", platform: "weibo" },
   { hosts: ["zhihu.com"], kind: "social", platform: "zhihu" },

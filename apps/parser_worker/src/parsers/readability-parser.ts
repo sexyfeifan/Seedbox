@@ -42,8 +42,14 @@ const BLOCKED_PAGE_SIGNALS = [
 
 export function parseWithReadability(sourceUrl: string, html: string): ParseResult {
   const dom = new JSDOM(html, { url: sourceUrl });
-  const siteSpecific = extractSiteSpecificData(sourceUrl, dom.window.document, html);
-  const reader = new Readability(dom.window.document);
+  const document = dom.window.document;
+
+  if (isXhsHostFromUrl(sourceUrl) || isLikelyXhsPage(html)) {
+    stripXhsCommentNodes(document);
+  }
+
+  const siteSpecific = extractSiteSpecificData(sourceUrl, document, html);
+  const reader = new Readability(document);
   const article = reader.parse();
   const imageAssets = extractImageAssets(
     dom.window.document,
@@ -3758,9 +3764,85 @@ function videoResolutionScore(asset: ParseAsset): number {
 function isXhsHostFromUrl(sourceUrl: string): boolean {
   try {
     const host = new URL(sourceUrl).hostname.toLowerCase();
-    return host.endsWith("xiaohongshu.com") || host.endsWith("xhslink.com") || host.endsWith("xhscdn.com");
+    return host.endsWith("xiaohongshu.com") || host.endsWith("xhslink.com") || host.endsWith("xhslink.cn") || host.endsWith("xhscdn.com");
   } catch {
     return false;
+  }
+}
+
+function isLikelyXhsPage(html: string): boolean {
+  const lower = String(html || "").toLowerCase().slice(0, 50000);
+  return lower.includes("__setup_server_state__") || lower.includes("xiaohongshu.com") || lower.includes("xhslink");
+}
+
+function stripXhsCommentNodes(document: Document): void {
+  const commentSelectors = [
+    '[class*="comment"]',
+    '[class*="Comment"]',
+    '[class*="reply"]',
+    '[class*="Reply"]',
+    '[class*="interact"]',
+    '[class*="Interact"]',
+    '[id*="comment"]',
+    '[id*="reply"]',
+    '[data-type="comment"]',
+    '[data-testid*="comment"]'
+  ];
+  const noteContentSelectors = [
+    '[class*="note-content"]',
+    '[class*="noteContent"]',
+    '[class*="note-text"]',
+    '[class*="desc"]',
+    '[id*="detail-desc"]',
+    '[class*="note-scroller"]'
+  ];
+
+  const isInsideNoteContent = (node: Element): boolean => {
+    let current: Element | null = node;
+    let depth = 0;
+    while (current && depth < 20) {
+      const className = String(current.getAttribute("class") || "").toLowerCase();
+      const id = String(current.getAttribute("id") || "").toLowerCase();
+      for (const selector of noteContentSelectors) {
+        const keyword = selector.replace(/[\[\]*="]/g, "").replace("class", "").replace("id", "").toLowerCase();
+        if (keyword && (className.includes(keyword) || id.includes(keyword))) {
+          return true;
+        }
+      }
+      current = current.parentElement;
+      depth++;
+    }
+    return false;
+  };
+
+  for (const selector of commentSelectors) {
+    try {
+      const nodes = document.querySelectorAll(selector);
+      for (const node of Array.from(nodes)) {
+        if (!isInsideNoteContent(node)) {
+          node.remove();
+        }
+      }
+    } catch { /* ignore invalid selectors */ }
+  }
+
+  const allElements = document.querySelectorAll("*");
+  for (const el of Array.from(allElements)) {
+    const className = String(el.getAttribute("class") || "").toLowerCase();
+    if (
+      className.includes("comment-list") ||
+      className.includes("commentList") ||
+      className.includes("comment-container") ||
+      className.includes("comment-wrapper") ||
+      className.includes("reply-list") ||
+      className.includes("replyList") ||
+      className.includes("hot-comment") ||
+      className.includes("hotComment") ||
+      className.includes("top-comment") ||
+      className.includes("topComment")
+    ) {
+      el.remove();
+    }
   }
 }
 

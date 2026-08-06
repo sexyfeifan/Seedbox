@@ -286,7 +286,7 @@ function shouldPreferSecondPassForPlatform(flow: CaptureFlow, first: ParseResult
 function isLikelyXhsSource(sourceUrl: string): boolean {
   try {
     const host = new URL(sourceUrl).hostname.toLowerCase();
-    return host.endsWith("xiaohongshu.com") || host.endsWith("xhslink.com") || host.endsWith("xhscdn.com");
+    return host.endsWith("xiaohongshu.com") || host.endsWith("xhslink.com") || host.endsWith("xhslink.cn") || host.endsWith("xhscdn.com");
   } catch {
     return false;
   }
