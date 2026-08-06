@@ -819,8 +819,7 @@ function buildXhsStructuredNoteData(record: Record<string, unknown>, sourceUrl: 
   const plainText = plainTextParts.join("\n").trim() || undefined;
 
   const imageCandidates = [
-    ...extractXhsImageCandidates(record, sourceUrl),
-    ...extractXhsAvatarCandidates(record, sourceUrl)
+    ...extractXhsImageCandidates(record, sourceUrl)
   ];
   const videoCandidates = extractXhsVideoCandidates(record, sourceUrl);
   if (!title && !byline && !plainText && imageCandidates.length === 0 && videoCandidates.length === 0) {
@@ -1208,8 +1207,11 @@ function collectXhsFieldsFromJson(
         bylineCandidates.push(cleaned);
       }
       if (isImageLikeField(lowerKey) || looksLikeImageUrl(value)) {
+        if (isAvatarLikeField(lowerKey)) {
+          continue;
+        }
         const normalized = normalizeAssetUrl(value, sourceUrl);
-        if (normalized && isLikelyXhsImageUrl(normalized)) {
+        if (normalized && isLikelyXhsImageUrl(normalized) && !isAvatarAssetUrl(normalized)) {
           assetCandidates.push({ url: normalized });
         }
       }
@@ -2878,6 +2880,26 @@ function isImageLikeField(key: string): boolean {
     "headimg",
     "headimage",
     "icon"
+  ].includes(key);
+}
+
+function isAvatarLikeField(key: string): boolean {
+  return [
+    "avatar",
+    "avatarurl",
+    "avatar_hd",
+    "avatar_large",
+    "avatarlarget",
+    "avatarmedium",
+    "profile_image_url",
+    "profileimageurl",
+    "profileimage",
+    "headimg",
+    "headimage",
+    "useravatar",
+    "authoravatar",
+    "commentavatar",
+    "replyavatar"
   ].includes(key);
 }
 
