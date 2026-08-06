@@ -28,6 +28,12 @@ export interface UpdateItemInput {
   collectionId?: string | null;
 }
 
+export interface UpdateItemContentInput {
+  plainText?: string;
+  htmlContent?: string;
+  markdownContent?: string;
+}
+
 export interface ListItemsInput {
   limit: number;
   offset: number;
@@ -129,6 +135,8 @@ export interface DataStore {
   listItems(userId: string, input: ListItemsInput): Promise<ListItemsResult>;
   updateItem(userId: string, itemId: string, input: UpdateItemInput): Promise<Item | null>;
   clearItemContent(userId: string, itemId: string): Promise<boolean>;
+  updateItemContent(userId: string, itemId: string, input: UpdateItemContentInput): Promise<boolean>;
+  deleteItemAsset(userId: string, itemId: string, assetId: string): Promise<boolean>;
   permanentlyDeleteItem(userId: string, itemId: string): Promise<boolean>;
   purgeArchivedItems(userId: string): Promise<number>;
   searchItems(userId: string, query: string, limit: number): Promise<Item[]>;

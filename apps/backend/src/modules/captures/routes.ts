@@ -36,7 +36,11 @@ const captureSchema = z.object({
         .filter((entry) => entry.length > 0);
     }
     return undefined;
-  }, z.array(z.string()).optional())
+  }, z.array(z.string()).optional()),
+  plainText: z.preprocess(
+    (value) => (typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined),
+    z.string().optional()
+  )
 });
 
 export const captureRoutes: FastifyPluginAsync = async (app) => {
@@ -45,8 +49,30 @@ export const captureRoutes: FastifyPluginAsync = async (app) => {
 
     const body = captureSchema.parse(request.body);
     const sourceUrl = extractFirstHttpUrl(body.sourceUrl);
+
+    if (!sourceUrl && body.plainText) {
+      const now = new Date().toISOString();
+      const title = body.titleHint || body.plainText.slice(0, 80).replace(/\n/g, " ").trim();
+      const pseudoUrl = `note://${Date.now()}`;
+      const item = await app.store.createItem(user.id, {
+        sourceUrl: pseudoUrl,
+        titleHint: title,
+        tags: body.tags,
+        collectionId: body.collectionId
+      });
+      await app.store.updateItemContent(user.id, item.id, {
+        plainText: body.plainText,
+        markdownContent: body.plainText
+      });
+      await app.store.updateItem(user.id, item.id, { status: "ready" });
+      return reply.code(201).send({
+        itemId: item.id,
+        status: "ready"
+      });
+    }
+
     if (!sourceUrl) {
-      throw app.httpErrors.badRequest("sourceUrl must contain a valid http/https URL");
+      throw app.httpErrors.badRequest("sourceUrl must contain a valid http/https URL, or provide plainText for note capture");
     }
     const resolvedSourceUrl = await resolveCaptureSourceUrl(sourceUrl);
     const titleHint = body.titleHint ?? extractTitleHintFromShareText(body.sourceUrl);

@@ -460,6 +460,44 @@ export class InMemoryStore implements DataStore {
     return true;
   }
 
+  async updateItemContent(userId: string, itemId: string, input: { plainText?: string; htmlContent?: string; markdownContent?: string }): Promise<boolean> {
+    const item = this.items.get(itemId);
+    if (!item || item.userId !== userId) {
+      return false;
+    }
+    const existing = this.contents.get(itemId);
+    const plainText = input.plainText !== undefined ? input.plainText : existing?.plainText;
+    const wordCount = plainText ? countWords(plainText) : 0;
+    this.contents.set(itemId, {
+      itemId,
+      plainText: plainText ?? undefined,
+      markdownContent: input.markdownContent !== undefined ? input.markdownContent : existing?.markdownContent,
+      htmlContent: input.htmlContent !== undefined ? input.htmlContent : existing?.htmlContent,
+      summaryShort: existing?.summaryShort,
+      wordCount,
+      readingMinutes: wordCount === 0 ? 0 : Math.max(1, Math.ceil(wordCount / 250))
+    });
+    this.addEvent(userId, "item", itemId, "content_updated", { wordCount });
+    this.schedulePersist();
+    return true;
+  }
+
+  async deleteItemAsset(userId: string, itemId: string, assetId: string): Promise<boolean> {
+    const item = this.items.get(itemId);
+    if (!item || item.userId !== userId) {
+      return false;
+    }
+    const assets = this.assets.get(itemId) ?? [];
+    const filtered = assets.filter((a) => a.id !== assetId);
+    if (filtered.length === assets.length) {
+      return false;
+    }
+    this.assets.set(itemId, filtered);
+    this.addEvent(userId, "item", itemId, "asset_deleted", { assetId });
+    this.schedulePersist();
+    return true;
+  }
+
   async createCollection(userId: string, input: CreateCollectionInput): Promise<Collection> {
     const now = new Date().toISOString();
     const parentId = this.resolveCollectionId(userId, input.parentId);
@@ -1304,4 +1342,12 @@ function clampPersistDebounce(value: number | undefined): number {
     return 800;
   }
   return Math.floor(value);
+}
+
+function countWords(text: string): number {
+  const cleaned = String(text || "").trim();
+  if (!cleaned) return 0;
+  const cjk = cleaned.match(/[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]/g);
+  const latin = cleaned.replace(/[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]/g, " ").trim().split(/\s+/).filter(Boolean);
+  return (cjk?.length ?? 0) + latin.length;
 }

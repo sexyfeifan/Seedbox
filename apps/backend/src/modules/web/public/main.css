@@ -857,6 +857,55 @@ body.detail-edit-mode .item-inline-detail .detail { padding-bottom: 94px; }
   font-weight: 600;
 }
 .edit-panel .row { flex-wrap: wrap; }
+.edit-panel textarea {
+  width: 100%;
+  min-height: 120px;
+  border: 2px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--ink-body);
+  font-family: inherit;
+  font-size: 14px;
+  padding: 8px 10px;
+  resize: vertical;
+  line-height: 1.6;
+}
+.edit-panel textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+.edit-hint {
+  margin: 6px 0 10px;
+  color: var(--ink-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+.asset-delete-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: none;
+  background: var(--error);
+  color: #fff;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.85;
+  z-index: 2;
+  transition: opacity 0.15s, transform 0.15s;
+}
+.asset-delete-btn:hover {
+  opacity: 1;
+  transform: scale(1.1);
+}
+body:not(.detail-edit-mode) .asset-delete-btn { display: none; }
 
 .summary-panel {
   margin-top: 14px;

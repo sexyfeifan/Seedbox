@@ -489,6 +489,103 @@ export class PostgresStore implements DataStore {
     }
   }
 
+  async updateItemContent(
+    userId: string,
+    itemId: string,
+    input: { plainText?: string; htmlContent?: string; markdownContent?: string }
+  ): Promise<boolean> {
+    if (!isUuid(itemId)) {
+      return false;
+    }
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      const found = await client.query<{ id: string }>(
+        `SELECT id FROM items WHERE id = $1 AND user_id = $2 LIMIT 1 FOR UPDATE`,
+        [itemId, userId]
+      );
+      if (found.rowCount === 0) {
+        await client.query("ROLLBACK");
+        return false;
+      }
+      await client.query(
+        `INSERT INTO item_contents (item_id) VALUES ($1) ON CONFLICT (item_id) DO NOTHING`,
+        [itemId]
+      );
+      const sets: string[] = ["updated_at = NOW()"];
+      const params: unknown[] = [itemId];
+      let paramIdx = 2;
+      if (input.plainText !== undefined) {
+        sets.push(`plain_text = $${paramIdx}`);
+        params.push(input.plainText);
+        paramIdx++;
+        const wordCount = countWords(input.plainText);
+        sets.push(`word_count = $${paramIdx}`);
+        params.push(wordCount);
+        paramIdx++;
+        sets.push(`reading_minutes = $${paramIdx}`);
+        params.push(wordCount === 0 ? 0 : Math.max(1, Math.ceil(wordCount / 250)));
+        paramIdx++;
+      }
+      if (input.htmlContent !== undefined) {
+        sets.push(`html_content = $${paramIdx}`);
+        params.push(input.htmlContent);
+        paramIdx++;
+      }
+      if (input.markdownContent !== undefined) {
+        sets.push(`markdown_content = $${paramIdx}`);
+        params.push(input.markdownContent);
+        paramIdx++;
+      }
+      await client.query(
+        `UPDATE item_contents SET ${sets.join(", ")} WHERE item_id = $1`,
+        params
+      );
+      await addSyncEvent(client, userId, "item", itemId, "content_updated", {});
+      await client.query("COMMIT");
+      return true;
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async deleteItemAsset(userId: string, itemId: string, assetId: string): Promise<boolean> {
+    if (!isUuid(itemId) || !isUuid(assetId)) {
+      return false;
+    }
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      const found = await client.query<{ id: string }>(
+        `SELECT id FROM items WHERE id = $1 AND user_id = $2 LIMIT 1 FOR UPDATE`,
+        [itemId, userId]
+      );
+      if (found.rowCount === 0) {
+        await client.query("ROLLBACK");
+        return false;
+      }
+      const deleted = await client.query(
+        `DELETE FROM item_assets WHERE id = $1 AND item_id = $2`,
+        [assetId, itemId]
+      );
+      if (deleted.rowCount === 0) {
+        await client.query("ROLLBACK");
+        return false;
+      }
+      await addSyncEvent(client, userId, "item", itemId, "asset_deleted", { assetId });
+      await client.query("COMMIT");
+      return true;
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   async permanentlyDeleteItem(userId: string, itemId: string): Promise<boolean> {
     const client = await this.pool.connect();
     try {
@@ -2218,4 +2315,12 @@ async function shouldApplyLwwForItem(
 
 function isUuid(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+function countWords(text: string): number {
+  const cleaned = String(text || "").trim();
+  if (!cleaned) return 0;
+  const cjk = cleaned.match(/[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]/g);
+  const latin = cleaned.replace(/[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]/g, " ").trim().split(/\s+/).filter(Boolean);
+  return (cjk?.length ?? 0) + latin.length;
 }

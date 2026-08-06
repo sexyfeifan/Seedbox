@@ -357,6 +357,41 @@ export const itemRoutes: FastifyPluginAsync = async (app) => {
     return reply.code(204).send();
   });
 
+  app.patch("/v1/items/:itemId/content", async (request, reply) => {
+    const user = resolveUser(request);
+    const { itemId } = z.object({ itemId: z.string().uuid() }).parse(request.params);
+    const body = z
+      .object({
+        plainText: z.string().optional(),
+        htmlContent: z.string().optional(),
+        markdownContent: z.string().optional()
+      })
+      .parse(request.body);
+    if (body.plainText === undefined && body.htmlContent === undefined && body.markdownContent === undefined) {
+      return reply.code(400).send({ message: "At least one content field is required" });
+    }
+    const updated = await app.store.updateItemContent(user.id, itemId, body);
+    if (!updated) {
+      return reply.notFound("Item not found");
+    }
+    return reply.code(204).send();
+  });
+
+  app.delete("/v1/items/:itemId/assets/:assetId", async (request, reply) => {
+    const user = resolveUser(request);
+    const { itemId, assetId } = z
+      .object({
+        itemId: z.string().uuid(),
+        assetId: z.string().uuid()
+      })
+      .parse(request.params);
+    const deleted = await app.store.deleteItemAsset(user.id, itemId, assetId);
+    if (!deleted) {
+      return reply.notFound("Item or asset not found");
+    }
+    return reply.code(204).send();
+  });
+
   app.delete("/v1/items/:itemId", async (request, reply) => {
     const user = resolveUser(request);
     const { itemId } = z.object({ itemId: z.string().uuid() }).parse(request.params);

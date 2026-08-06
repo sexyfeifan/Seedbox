@@ -110,6 +110,7 @@ const summaryPoints = document.getElementById("summary-points");
 const summaryText = document.getElementById("summary-text");
 const detailEditTitle = document.getElementById("detail-edit-title");
 const detailEditTags = document.getElementById("detail-edit-tags");
+const detailEditPlaintext = document.getElementById("detail-edit-plaintext");
 const saveDetailBtn = document.getElementById("save-detail-btn");
 const reparseBtn = document.getElementById("reparse-btn");
 const deleteDetailBtn = document.getElementById("delete-detail-btn");
@@ -2606,6 +2607,7 @@ async function openDetail(itemId, { syncRoute = true, replaceRoute = false, mode
 
   detailEditTitle.value = item.title || "";
   detailEditTags.value = displayTagsOf(item).join(", ");
+  detailEditPlaintext.value = normalizedDetailText || "";
 
   renderSummary({
     status: item.summaryStatus || "idle",
@@ -2743,6 +2745,26 @@ function renderDetailAssets() {
     }
 
     if (currentDetailMode === DETAIL_MODE_EDIT) {
+      const delBtn = document.createElement("button");
+      delBtn.className = "asset-delete-btn";
+      delBtn.type = "button";
+      delBtn.textContent = "✕";
+      delBtn.title = "删除此图片";
+      delBtn.addEventListener("click", async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (!confirm("确认删除这张图片？")) return;
+        try {
+          await api(`/v1/items/${currentItemId}/assets/${asset.id}`, { method: "DELETE" });
+          currentDetailAssets = currentDetailAssets.filter((a) => a.id !== asset.id);
+          card.remove();
+          setCreateStatus("已删除图片");
+        } catch (err) {
+          setCreateStatus(`删除失败: ${errorMessage(err)}`, true);
+        }
+      });
+      card.appendChild(delBtn);
+
       const link = document.createElement("a");
       link.className = "asset-download detail-media-download";
       link.href = asset.downloadUrl || asset.previewUrl || asset.url;
@@ -2834,9 +2856,40 @@ function moveImage(step) {
 }
 
 async function submitCapture() {
-  const sourceUrl = tryExtractCaptureUrl(sourceUrlInput.value, { setFieldValue: true });
+  const rawInput = sourceUrlInput.value.trim();
+  const sourceUrl = tryExtractCaptureUrl(rawInput, { setFieldValue: true });
+
+  if (!sourceUrl && rawInput.length > 0 && !rawInput.startsWith("http")) {
+    setCreateStatus("保存中...");
+    try {
+      const payload = {
+        sourceUrl: rawInput,
+        plainText: rawInput,
+        titleHint: titleHintInput.value.trim() || undefined,
+        tags: parseTags(tagsInput.value)
+      };
+      const result = await api("/v1/captures", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      sourceUrlInput.value = "";
+      titleHintInput.value = "";
+      tagsInput.value = "";
+      setCreateStatus("已保存纯文字收藏");
+      closeCaptureModal();
+      hideDetail({ syncRoute: true, replaceRoute: true });
+      await loadItems();
+      return;
+    } catch (error) {
+      setCreateStatus(`保存失败: ${errorMessage(error)}`, true);
+      return;
+    }
+  }
+
   if (!sourceUrl) {
-    setCreateStatus("未识别到有效链接，请粘贴链接或分享文案", true);
+    setCreateStatus("未识别到有效链接，请粘贴链接、分享文案或文字内容", true);
     return;
   }
 
@@ -2972,12 +3025,23 @@ async function saveDetailEdits() {
     tags: uniq(parseTags(detailEditTags.value))
   };
 
+  const editedText = detailEditPlaintext.value.trim();
+
   try {
     await api(`/v1/items/${currentItemId}`, {
       method: "PATCH",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(payload)
     });
+
+    if (editedText !== (currentDetailText || "").trim()) {
+      await api(`/v1/items/${currentItemId}/content`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ plainText: editedText, markdownContent: editedText })
+      });
+    }
+
     setCreateStatus("已保存修改");
     const itemId = currentItemId;
     await loadItems();
