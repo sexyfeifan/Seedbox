@@ -1,9 +1,9 @@
-# Seedbox v0.1.67 服务端部署示例（逐项中文注释版）
+# Seedbox v0.1.69 服务端部署示例（逐项中文注释版）
 services:
   # 后端 API 服务：负责收藏写入、列表读取、详情接口、媒体代理、Web 页面等
   seedbox-backend:
     # 后端镜像版本，建议与 parser-worker 保持一致
-    image: sexyfeifan/seedbox-backend:v0.1.67
+    image: sexyfeifan/seedbox-backend:v0.1.69
     # 容器名称，方便在宿主机上排查日志
     container_name: seedbox-backend
     # 容器异常退出后自动重启，除非手动停止
@@ -34,17 +34,21 @@ services:
       # 商业模式开关；普通自用可保持 false
       COMMERCIAL_MODE_ENABLED: ${COMMERCIAL_MODE_ENABLED:-false}
       # 当前统一发布版本号，仅作版本标识展示
-      SEEDBOX_RELEASE_VERSION: ${SEEDBOX_RELEASE_VERSION:-v0.1.67}
+      SEEDBOX_RELEASE_VERSION: ${SEEDBOX_RELEASE_VERSION:-v0.1.69}
       # 后端版本号，建议与 release 版本保持一致
-      SEEDBOX_BACKEND_VERSION: ${SEEDBOX_BACKEND_VERSION:-v0.1.67}
+      SEEDBOX_BACKEND_VERSION: ${SEEDBOX_BACKEND_VERSION:-v0.1.69}
       # 解析器版本号，建议与 release 版本保持一致
-      SEEDBOX_PARSER_VERSION: ${SEEDBOX_PARSER_VERSION:-v0.1.67}
+      SEEDBOX_PARSER_VERSION: ${SEEDBOX_PARSER_VERSION:-v0.1.69}
       # 捕获入口解析分享链接的超时时间（毫秒）
       CAPTURE_RESOLVE_TIMEOUT_MS: ${CAPTURE_RESOLVE_TIMEOUT_MS:-12000}
       # 后端回源抓媒体资源的超时时间（毫秒）
       ASSET_FETCH_TIMEOUT_MS: ${ASSET_FETCH_TIMEOUT_MS:-30000}
       # 额外噪音媒体过滤规则，留空即可
       EXTRA_NOISE_ASSET_PATTERNS: ${EXTRA_NOISE_ASSET_PATTERNS:-}
+      # CORS 允许的来源域名；公网部署时建议设置
+      CORS_ORIGIN: ${CORS_ORIGIN:-}
+      # JWT 密钥；商业模式需要设置，自用可留空
+      JWT_SECRET: ${JWT_SECRET:-}
     ports:
       # 宿主机端口映射到容器 12333；默认外部访问端口也是 12333
       - "${SEEDBOX_HOST_PORT:-12333}:12333"
@@ -64,14 +68,15 @@ services:
   # 解析 worker：负责轮询待解析任务并抓取正文/图片/视频
   seedbox-parser-worker:
     # 解析器镜像版本，必须与后端版本配套
-    image: sexyfeifan/seedbox-parser-worker:v0.1.67
+    image: sexyfeifan/seedbox-parser-worker:v0.1.69
     # 容器名称，方便查看日志
     container_name: seedbox-parser-worker
     # 容器异常退出后自动重启
     restart: unless-stopped
     depends_on:
-      # 先等后端容器启动，再启动解析器
-      - seedbox-backend
+      # 等后端健康检查通过后再启动，避免 worker 启动时后端还没准备好
+      seedbox-backend:
+        condition: service_healthy
     environment:
       # 容器时区
       TZ: Asia/Shanghai
@@ -84,17 +89,34 @@ services:
       # 与后端一致的内部通信令牌
       INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-seedbox-dev-token}
       # parser 自身版本标识
-      SEEDBOX_PARSER_VERSION: ${SEEDBOX_PARSER_VERSION:-v0.1.67}
+      SEEDBOX_PARSER_VERSION: ${SEEDBOX_PARSER_VERSION:-v0.1.69}
       # 轮询待解析任务的间隔（毫秒）
       WORKER_POLL_INTERVAL_MS: 3000
+      # 失败任务最大重试次数
+      WORKER_MAX_RETRIES: ${WORKER_MAX_RETRIES:-3}
+      # 重试退避基础时间（毫秒），每次重试翻倍
+      WORKER_BACKOFF_BASE_MS: ${WORKER_BACKOFF_BASE_MS:-5000}
       # 是否开启 Playwright 动态回退；建议保持 true
       ENABLE_PLAYWRIGHT_FALLBACK: "true"
+      # Playwright 浏览器池大小；减少冷启动开销
+      PLAYWRIGHT_POOL_SIZE: ${PLAYWRIGHT_POOL_SIZE:-2}
+      # 是否保存页面截图到归档目录
+      SAVE_SCREENSHOTS: ${SAVE_SCREENSHOTS:-true}
+      # 归档文件存储目录（截图、yt-dlp 下载、monolith 页面）
+      ARCHIVE_DIR: /data/archive
+      # 是否开启 yt-dlp 视频归档；需要容器内安装 yt-dlp
+      ENABLE_YTDLP_ARCHIVE: ${ENABLE_YTDLP_ARCHIVE:-true}
+      # 是否开启 monolith 全页归档；需要容器内安装 monolith
+      ENABLE_MONOLITH_ARCHIVE: ${ENABLE_MONOLITH_ARCHIVE:-false}
       # 豆瓣最小请求间隔（毫秒），用于降低触发风控概率
       DOUBAN_MIN_REQUEST_INTERVAL_MS: ${DOUBAN_MIN_REQUEST_INTERVAL_MS:-4000}
       # 豆瓣请求随机抖动（毫秒），用于进一步打散请求节奏
       DOUBAN_REQUEST_JITTER_MS: ${DOUBAN_REQUEST_JITTER_MS:-1200}
       # 豆瓣 Cookie；如需提高豆瓣抓取稳定性可自行填写
       DOUBAN_COOKIE: ${DOUBAN_COOKIE:-}
+    volumes:
+      # 共享后端数据目录，用于存储归档文件
+      - ./data/backend:/data
     extra_hosts:
       # 允许容器内通过 host.docker.internal 访问宿主机
       - "host.docker.internal:host-gateway"

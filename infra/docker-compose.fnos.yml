@@ -1,6 +1,6 @@
 services:
   seedbox-backend:
-    image: sexyfeifan/seedbox-backend:v0.1.67
+    image: sexyfeifan/seedbox-backend:v0.1.69
     container_name: seedbox-backend
     restart: unless-stopped
     environment:
@@ -16,12 +16,14 @@ services:
       INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-seedbox-dev-token}
       CLIENT_ACCESS_TOKEN: ${CLIENT_ACCESS_TOKEN:-}
       COMMERCIAL_MODE_ENABLED: ${COMMERCIAL_MODE_ENABLED:-false}
-      SEEDBOX_RELEASE_VERSION: ${SEEDBOX_RELEASE_VERSION:-v0.1.67}
-      SEEDBOX_BACKEND_VERSION: ${SEEDBOX_BACKEND_VERSION:-v0.1.67}
-      SEEDBOX_PARSER_VERSION: ${SEEDBOX_PARSER_VERSION:-v0.1.67}
+      SEEDBOX_RELEASE_VERSION: ${SEEDBOX_RELEASE_VERSION:-v0.1.69}
+      SEEDBOX_BACKEND_VERSION: ${SEEDBOX_BACKEND_VERSION:-v0.1.69}
+      SEEDBOX_PARSER_VERSION: ${SEEDBOX_PARSER_VERSION:-v0.1.69}
       CAPTURE_RESOLVE_TIMEOUT_MS: ${CAPTURE_RESOLVE_TIMEOUT_MS:-12000}
       ASSET_FETCH_TIMEOUT_MS: ${ASSET_FETCH_TIMEOUT_MS:-30000}
       EXTRA_NOISE_ASSET_PATTERNS: ${EXTRA_NOISE_ASSET_PATTERNS:-}
+      CORS_ORIGIN: ${CORS_ORIGIN:-}
+      JWT_SECRET: ${JWT_SECRET:-}
     ports:
       - "${SEEDBOX_HOST_PORT:-12333}:12333"
     volumes:
@@ -33,22 +35,32 @@ services:
       retries: 10
 
   seedbox-parser-worker:
-    image: sexyfeifan/seedbox-parser-worker:v0.1.67
+    image: sexyfeifan/seedbox-parser-worker:v0.1.69
     container_name: seedbox-parser-worker
     restart: unless-stopped
     depends_on:
-      - seedbox-backend
+      seedbox-backend:
+        condition: service_healthy
     environment:
       TZ: Asia/Shanghai
       NODE_ENV: production
       WORKER_MODE: api
       API_BASE_URL: http://seedbox-backend:12333
       INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-seedbox-dev-token}
-      SEEDBOX_PARSER_VERSION: ${SEEDBOX_PARSER_VERSION:-v0.1.67}
+      SEEDBOX_PARSER_VERSION: ${SEEDBOX_PARSER_VERSION:-v0.1.69}
       WORKER_POLL_INTERVAL_MS: 3000
+      WORKER_MAX_RETRIES: ${WORKER_MAX_RETRIES:-3}
+      WORKER_BACKOFF_BASE_MS: ${WORKER_BACKOFF_BASE_MS:-5000}
       ENABLE_PLAYWRIGHT_FALLBACK: "true"
+      PLAYWRIGHT_POOL_SIZE: ${PLAYWRIGHT_POOL_SIZE:-2}
+      SAVE_SCREENSHOTS: ${SAVE_SCREENSHOTS:-true}
+      ARCHIVE_DIR: /data/archive
+      ENABLE_YTDLP_ARCHIVE: ${ENABLE_YTDLP_ARCHIVE:-true}
+      ENABLE_MONOLITH_ARCHIVE: ${ENABLE_MONOLITH_ARCHIVE:-false}
       DOUBAN_MIN_REQUEST_INTERVAL_MS: ${DOUBAN_MIN_REQUEST_INTERVAL_MS:-4000}
       DOUBAN_REQUEST_JITTER_MS: ${DOUBAN_REQUEST_JITTER_MS:-1200}
       DOUBAN_COOKIE: ${DOUBAN_COOKIE:-}
+    volumes:
+      - ./data/backend:/data
     extra_hosts:
       - "host.docker.internal:host-gateway"

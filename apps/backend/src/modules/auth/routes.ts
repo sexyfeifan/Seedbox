@@ -16,7 +16,25 @@ const pendingCodes = new Map<
   }
 >();
 
-// Cleanup expired codes every 5 minutes to prevent memory leak
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT_WINDOW_MS = Number(process.env.AUTH_RATE_LIMIT_WINDOW_MS ?? 15 * 60 * 1000);
+const RATE_LIMIT_MAX_REQUESTS = Number(process.env.AUTH_RATE_LIMIT_MAX ?? 10);
+
+function checkRateLimit(key: string): { allowed: boolean; retryAfterMs?: number } {
+  const now = Date.now();
+  const entry = rateLimitMap.get(key);
+  if (!entry || entry.resetAt < now) {
+    rateLimitMap.set(key, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+    return { allowed: true };
+  }
+  if (entry.count >= RATE_LIMIT_MAX_REQUESTS) {
+    return { allowed: false, retryAfterMs: entry.resetAt - now };
+  }
+  entry.count++;
+  return { allowed: true };
+}
+
+// Cleanup expired codes and rate limit entries every 5 minutes
 setInterval(() => {
   const now = Date.now();
   for (const [email, entry] of pendingCodes) {
@@ -24,7 +42,12 @@ setInterval(() => {
       pendingCodes.delete(email);
     }
   }
-}, 5 * 60 * 1000);
+  for (const [key, entry] of rateLimitMap) {
+    if (entry.resetAt < now) {
+      rateLimitMap.delete(key);
+    }
+  }
+}, 5 * 60 * 1000).unref();
 
 const requestCodeSchema = z.object({
   email: z.string().email(),
@@ -42,9 +65,16 @@ const refreshSchema = z.object({
 });
 
 export const authRoutes: FastifyPluginAsync = async (app) => {
-  app.post("/v1/auth/request-code", async (request) => {
+  app.post("/v1/auth/request-code", async (request, reply) => {
     const body = requestCodeSchema.parse(request.body);
     const email = body.email.trim().toLowerCase();
+
+    const rateLimit = checkRateLimit(`request:${email}`);
+    if (!rateLimit.allowed) {
+      const retryAfterSec = Math.ceil((rateLimit.retryAfterMs ?? RATE_LIMIT_WINDOW_MS) / 1000);
+      return reply.code(429).send({ message: `Too many requests. Try again in ${retryAfterSec}s.`, retryAfterSec });
+    }
+
     const code = generateCode();
     const expiresAt = Date.now() + CODE_TTL_MS;
     pendingCodes.set(email, {
@@ -65,6 +95,13 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
   app.post("/v1/auth/verify-code", async (request, reply) => {
     const body = verifyCodeSchema.parse(request.body);
     const email = body.email.trim().toLowerCase();
+
+    const rateLimit = checkRateLimit(`verify:${email}`);
+    if (!rateLimit.allowed) {
+      const retryAfterSec = Math.ceil((rateLimit.retryAfterMs ?? RATE_LIMIT_WINDOW_MS) / 1000);
+      return reply.code(429).send({ message: `Too many requests. Try again in ${retryAfterSec}s.`, retryAfterSec });
+    }
+
     const pending = pendingCodes.get(email);
     if (!pending) {
       return reply.code(400).send({ message: "Verification code not requested" });

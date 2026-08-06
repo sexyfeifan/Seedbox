@@ -24,6 +24,8 @@ COPY package*.json ./
 RUN npm ci --omit=dev
 RUN npx playwright install --with-deps chromium chromium-headless-shell
 
+RUN pip3 install --no-cache-dir yt-dlp 2>/dev/null || true
+
 COPY --from=build /app/dist ./dist
 
 CMD ["node", "dist/main.js"]

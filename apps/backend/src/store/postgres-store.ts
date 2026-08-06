@@ -145,8 +145,20 @@ export class PostgresStore implements DataStore {
   private readonly summarySnapshots = new Map<string, ItemSummarySnapshot>();
   private readonly summaryTimers = new Map<string, NodeJS.Timeout>();
   private billingSchemaReady = false;
+  private readonly syncIdCleanupTimer: ReturnType<typeof setInterval>;
 
-  constructor(private readonly pool: Pool) {}
+  constructor(private readonly pool: Pool) {
+    // Periodically purge the in-memory sync dedup set to prevent unbounded growth
+    const cleanupIntervalMs = Number(process.env.SYNC_DEDUP_CLEANUP_MS ?? 30 * 60 * 1000);
+    this.syncIdCleanupTimer = setInterval(() => {
+      if (this.processedSyncOperationIds.size > 10000) {
+        this.processedSyncOperationIds.clear();
+      }
+    }, cleanupIntervalMs);
+    if (typeof this.syncIdCleanupTimer === "object" && "unref" in this.syncIdCleanupTimer) {
+      this.syncIdCleanupTimer.unref();
+    }
+  }
 
   static fromDatabaseUrl(databaseUrl: string): PostgresStore {
     return new PostgresStore(
@@ -157,6 +169,11 @@ export class PostgresStore implements DataStore {
   }
 
   async close(): Promise<void> {
+    clearInterval(this.syncIdCleanupTimer);
+    for (const timer of this.summaryTimers.values()) {
+      clearTimeout(timer);
+    }
+    this.summaryTimers.clear();
     await this.pool.end();
   }
 

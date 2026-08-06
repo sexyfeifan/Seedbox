@@ -1,36 +1,33 @@
-type DynamicPlaywright = {
-  chromium?: {
-    launch: (options: { headless: boolean }) => Promise<{
-      newPage: (options: { userAgent: string }) => Promise<{
-        setExtraHTTPHeaders?: (headers: Record<string, string>) => Promise<void>;
-        setViewportSize?: (viewport: { width: number; height: number }) => Promise<void>;
-        waitForTimeout?: (ms: number) => Promise<void>;
-        evaluate?: (pageFunction: string | ((arg?: unknown) => unknown), arg?: unknown) => Promise<unknown>;
-        goto: (url: string, options: { waitUntil: "domcontentloaded" | "networkidle"; timeout: number; referer?: string }) => Promise<void>;
-        url?: () => string;
-        content: () => Promise<string>;
-        close: () => Promise<void>;
-      }>;
-      close: () => Promise<void>;
-    }>;
-  };
-};
+import { browserPool, type Page, type Browser } from "./browser-pool.js";
+import { mkdir } from "node:fs/promises";
+import { join } from "node:path";
+import {
+  escapeHtml,
+  normalizeDouyinVideoUrl,
+  isDoubanSource,
+  isDouyinSource,
+  isXiaohongshuSource,
+  resolveReferer
+} from "./utils.js";
 
 const DEFAULT_USER_AGENT =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
 const MOBILE_USER_AGENT =
   "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/124.0.0.0 Mobile/15E148 Safari/604.1";
 
-const dynamicImport = new Function("modulePath", "return import(modulePath);") as (
-  modulePath: string
-) => Promise<unknown>;
+const ARCHIVE_DIR = process.env.ARCHIVE_DIR ?? "/data/archive";
 
-export async function fetchHtmlWithPlaywright(sourceUrl: string): Promise<string> {
-  const playwright = (await loadPlaywright()) as DynamicPlaywright | null;
-  if (!playwright?.chromium) {
-    throw new Error("playwright_unavailable");
-  }
+export type PlaywrightResult = {
+  html: string;
+  screenshotPath?: string;
+};
 
+export async function fetchHtmlWithPlaywright(sourceUrl: string, itemId?: string): Promise<string> {
+  const result = await fetchWithPlaywrightAndScreenshot(sourceUrl, itemId);
+  return result.html;
+}
+
+export async function fetchWithPlaywrightAndScreenshot(sourceUrl: string, itemId?: string): Promise<PlaywrightResult> {
   const isDouban = isDoubanSource(sourceUrl);
   const isDouyin = isDouyinSource(sourceUrl);
   const isXhs = isXiaohongshuSource(sourceUrl);
@@ -39,9 +36,13 @@ export async function fetchHtmlWithPlaywright(sourceUrl: string): Promise<string
   const shouldUseMobile = mobilePreferred || isDouban || isXhs;
   const referer = resolveReferer(sourceUrl);
 
-  const browser = await playwright.chromium.launch({
-    headless: true
-  });
+  let browser: Browser;
+  try {
+    browser = await browserPool.acquire();
+  } catch {
+    throw new Error("playwright_unavailable");
+  }
+
   const page = await browser.newPage({
     userAgent: shouldUseMobile ? MOBILE_USER_AGENT : userAgent
   });
@@ -86,12 +87,17 @@ export async function fetchHtmlWithPlaywright(sourceUrl: string): Promise<string
           break;
         }
       }
-      return html;
+      const screenshotPath = await takeScreenshot(page, itemId, sourceUrl);
+      browserPool.release(browser);
+      return { html, screenshotPath };
     }
 
     if (isDouyin) {
       const snapshot = await collectDouyinRuntimeSnapshot(page);
-      return mergeDouyinRuntimeSnapshotHtml(html, snapshot, page.url?.() ?? sourceUrl);
+      const mergedHtml = mergeDouyinRuntimeSnapshotHtml(html, snapshot, page.url?.() ?? sourceUrl);
+      const screenshotPath = await takeScreenshot(page, itemId, sourceUrl);
+      browserPool.release(browser);
+      return { html: mergedHtml, screenshotPath };
     }
 
     try {
@@ -103,47 +109,33 @@ export async function fetchHtmlWithPlaywright(sourceUrl: string): Promise<string
     } catch {
       // best effort; some pages keep long-polling and never become fully idle.
     }
-    return html;
+
+    const screenshotPath = await takeScreenshot(page, itemId, sourceUrl);
+    browserPool.release(browser);
+    return { html, screenshotPath };
+  } catch (err) {
+    browserPool.release(browser);
+    throw err;
   } finally {
     await page.close();
-    await browser.close();
   }
 }
 
-function isDoubanSource(sourceUrl: string): boolean {
+async function takeScreenshot(page: Page, itemId: string | undefined, sourceUrl: string): Promise<string | undefined> {
+  if (!itemId || typeof page.screenshot !== "function") return undefined;
+  const saveScreenshots = (process.env.SAVE_SCREENSHOTS ?? "true") !== "false";
+  if (!saveScreenshots) return undefined;
+
   try {
-    return new URL(sourceUrl).hostname.toLowerCase().endsWith("douban.com");
-  } catch {
-    return false;
+    const outputDir = join(ARCHIVE_DIR, itemId);
+    await mkdir(outputDir, { recursive: true });
+    const outputPath = join(outputDir, "screenshot.png");
+    await page.screenshot({ path: outputPath, type: "png", fullPage: true });
+    return outputPath;
+  } catch (err) {
+    console.warn(`[screenshot:failed] ${sourceUrl}: ${err instanceof Error ? err.message : String(err)}`);
+    return undefined;
   }
-}
-
-function isDouyinSource(sourceUrl: string): boolean {
-  try {
-    const host = new URL(sourceUrl).hostname.toLowerCase();
-    return host.endsWith("douyin.com") || host.endsWith("iesdouyin.com");
-  } catch {
-    return false;
-  }
-}
-
-function isXiaohongshuSource(sourceUrl: string): boolean {
-  try {
-    const host = new URL(sourceUrl).hostname.toLowerCase();
-    return host.endsWith("xiaohongshu.com") || host.endsWith("xhslink.com") || host.endsWith("xhscdn.com");
-  } catch {
-    return false;
-  }
-}
-
-function resolveReferer(sourceUrl: string): string {
-  if (process.env.HTTP_REFERER) {
-    return process.env.HTTP_REFERER;
-  }
-  if (isDouyinSource(sourceUrl)) {
-    return "https://www.douyin.com/";
-  }
-  return isDoubanSource(sourceUrl) ? "https://www.douban.com/" : "https://www.google.com/";
 }
 
 async function readContentWithRetry(
@@ -521,39 +513,6 @@ function mergeDouyinRuntimeSnapshotHtml(
   return `${html}\n${runtimeBlock}`;
 }
 
-function normalizeDouyinVideoUrl(input: string): string {
-  const value = String(input || "").trim();
-  if (!value) {
-    return value;
-  }
-  try {
-    const parsed = new URL(value.replace("/playwm", "/play"));
-    if (parsed.pathname.includes("/aweme/v1/play")) {
-      const watermarkKeys = ["watermark", "wm_type", "wmid", "logo"];
-      for (const key of watermarkKeys) {
-        parsed.searchParams.delete(key);
-      }
-      parsed.searchParams.set("wm", "0");
-      if (parsed.searchParams.has("video_id")) {
-        parsed.searchParams.set("ratio", "1080p");
-        parsed.searchParams.set("is_play_url", "1");
-      }
-    }
-    return parsed.toString();
-  } catch {
-    return value.replace("/playwm", "/play");
-  }
-}
-
-function escapeHtml(input: string): string {
-  return String(input || "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
 function isLikelyDouyinLoginModal(html: string): boolean {
   const lower = String(html || "").toLowerCase();
   if (!lower) {
@@ -588,12 +547,4 @@ function isLikelyPowChallengePage(sourceUrl: string, html: string): boolean {
     lowerHtml.includes("人机验证") ||
     (lowerHtml.includes("name=\"tok\"") && lowerHtml.includes("name=\"cha\""))
   );
-}
-
-async function loadPlaywright(): Promise<unknown | null> {
-  try {
-    return await dynamicImport("playwright");
-  } catch {
-    return null;
-  }
 }

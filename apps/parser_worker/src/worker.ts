@@ -1,6 +1,9 @@
 import { fetchHtml } from "./fetch-html.js";
-import { fetchHtmlWithPlaywright } from "./fetch-html-playwright.js";
+import { fetchHtmlWithPlaywright, fetchWithPlaywrightAndScreenshot } from "./fetch-html-playwright.js";
 import { parseWithReadability } from "./parsers/readability-parser.js";
+import { detectCaptureFlow, type CaptureFlow } from "./platform-detector.js";
+import { supportsYtdlp, downloadVideo, extractVideoInfo, isYtdlpAvailable } from "./ytdlp-archive.js";
+import { isMonolithAvailable, archivePage } from "./monolith-archive.js";
 import type { ParseJob, ParseResult } from "./types.js";
 
 const LEGAL_NOISE_PATTERN =
@@ -11,29 +14,9 @@ const XHS_GENERIC_TITLE_PATTERN = /^(?:小红书(?:\s*-\s*你的生活兴趣社�
 const BLOCKED_OR_CHALLENGE_PATTERN =
   /(载入中\s*\.\.\.|captcha|人机验证|验证后继续|访问受限|name=\"tok\"|name=\"cha\"|id=\"sec\"|security check|异常请求|请求异常|访问过于频繁|sec\.douban\.com|验证你不是机器人|are you a robot)/i;
 
-type CaptureFlow = {
-  kind: "social" | "web";
-  platform:
-    | "xiaohongshu"
-    | "douyin"
-    | "weibo"
-    | "zhihu"
-    | "douban"
-    | "bilibili"
-    | "kuaishou"
-    | "tiktok"
-    | "instagram"
-    | "x"
-    | "youtube"
-    | "facebook"
-    | "threads"
-    | "reddit"
-    | "telegram"
-    | "web";
-};
-
 export async function runParseJob(job: ParseJob): Promise<ParseResult> {
   const flow = detectCaptureFlow(job.sourceUrl);
+
   let staticHtml = "";
   let firstPass: ParseResult | null = null;
   let staticError: Error | null = null;
@@ -48,12 +31,14 @@ export async function runParseJob(job: ParseJob): Promise<ParseResult> {
   }
 
   if (firstPass && !shouldFallbackToPlaywright(job.sourceUrl, flow, firstPass, staticHtml)) {
+    await runArchivalSteps(job, flow, firstPass);
     return firstPass;
   }
 
   const fallbackEnabled = (process.env.ENABLE_PLAYWRIGHT_FALLBACK ?? "true") !== "false";
   if (!fallbackEnabled) {
     if (firstPass) {
+      await runArchivalSteps(job, flow, firstPass);
       return firstPass;
     }
     throw staticError ?? new Error("static fetch failed");
@@ -61,37 +46,49 @@ export async function runParseJob(job: ParseJob): Promise<ParseResult> {
 
   let renderedHtml = "";
   let secondPass: ParseResult | null = null;
+  let screenshotPath: string | undefined;
   try {
-    renderedHtml = await fetchHtmlWithPlaywright(job.sourceUrl);
+    const playwrightResult = await fetchWithPlaywrightAndScreenshot(job.sourceUrl, job.itemId);
+    renderedHtml = playwrightResult.html;
+    screenshotPath = playwrightResult.screenshotPath;
     secondPass = parseWithReadability(job.sourceUrl, renderedHtml);
     logPass("playwright", job.sourceUrl, secondPass, flow);
     if (!firstPass) {
       if (isLikelyBlockedResult(secondPass, renderedHtml)) {
         throw new Error("source blocked by anti-bot challenge");
       }
-      return {
+      const result = {
         ...secondPass,
         parserVersion: `${secondPass.parserVersion}+playwright`
       };
+      await runArchivalSteps(job, flow, result);
+      return result;
     }
     if (isLikelyBlockedResult(firstPass, staticHtml) && !isLikelyBlockedResult(secondPass, renderedHtml)) {
-      return {
+      const result = {
         ...secondPass,
         parserVersion: `${secondPass.parserVersion}+playwright`
       };
+      await runArchivalSteps(job, flow, result);
+      return result;
     }
     if (shouldPreferSecondPassForPlatform(flow, firstPass, secondPass)) {
-      return {
+      const result = {
         ...secondPass,
         parserVersion: `${secondPass.parserVersion}+playwright`
       };
+      await runArchivalSteps(job, flow, result);
+      return result;
     }
     if (isBetterResult(secondPass, firstPass)) {
-      return {
+      const result = {
         ...secondPass,
         parserVersion: `${secondPass.parserVersion}+playwright`
       };
+      await runArchivalSteps(job, flow, result);
+      return result;
     }
+    await runArchivalSteps(job, flow, firstPass);
     return firstPass;
   } catch (error) {
     const rawReason = error instanceof Error ? error.message : String(error);
@@ -100,6 +97,7 @@ export async function runParseJob(job: ParseJob): Promise<ParseResult> {
       console.warn(`playwright fallback skipped: ${reason}`);
     }
     if (firstPass) {
+      await runArchivalSteps(job, flow, firstPass);
       return firstPass;
     }
     if (staticError) {
@@ -107,6 +105,57 @@ export async function runParseJob(job: ParseJob): Promise<ParseResult> {
       throw new Error(`static failed: ${staticReason}; playwright failed: ${reason}`);
     }
     throw new Error(`playwright failed: ${reason}`);
+  }
+}
+
+async function runArchivalSteps(job: ParseJob, flow: CaptureFlow, result: ParseResult): Promise<void> {
+  const steps: Promise<void>[] = [];
+
+  if ((process.env.ENABLE_YTDLP_ARCHIVE ?? "true") !== "false" && supportsYtdlp(job.sourceUrl)) {
+    steps.push(
+      (async () => {
+        try {
+          const available = await isYtdlpAvailable();
+          if (!available) return;
+          const hasVideo = (result.assets ?? []).some((a) => a.type === "video");
+          if (hasVideo) {
+            console.log(`[ytdlp:skip] ${job.sourceUrl} already has video assets`);
+            return;
+          }
+          const info = await extractVideoInfo(job.sourceUrl);
+          if (info) {
+            console.log(`[ytdlp:info] ${job.sourceUrl} title=${info.title} duration=${info.duration}s`);
+            const downloaded = await downloadVideo(job.sourceUrl, job.itemId);
+            if (downloaded?.videoPath) {
+              console.log(`[ytdlp:archived] ${job.sourceUrl} → ${downloaded.videoPath}`);
+            }
+          }
+        } catch (err) {
+          console.warn(`[ytdlp:error] ${job.sourceUrl}: ${err instanceof Error ? err.message : String(err)}`);
+        }
+      })()
+    );
+  }
+
+  if ((process.env.ENABLE_MONOLITH_ARCHIVE ?? "false") !== "false") {
+    steps.push(
+      (async () => {
+        try {
+          const available = await isMonolithAvailable();
+          if (!available) return;
+          const archived = await archivePage(job.sourceUrl, job.itemId);
+          if (archived) {
+            console.log(`[monolith:archived] ${job.sourceUrl} → ${archived}`);
+          }
+        } catch (err) {
+          console.warn(`[monolith:error] ${job.sourceUrl}: ${err instanceof Error ? err.message : String(err)}`);
+        }
+      })()
+    );
+  }
+
+  if (steps.length > 0) {
+    await Promise.allSettled(steps);
   }
 }
 
@@ -157,60 +206,6 @@ function shouldFallbackToPlaywright(sourceUrl: string, flow: CaptureFlow, firstP
     return true;
   }
   return lowContent && mediaCount === 0;
-}
-
-function detectCaptureFlow(sourceUrl: string): CaptureFlow {
-  try {
-    const host = new URL(sourceUrl).hostname.toLowerCase();
-    if (host.endsWith("xhslink.com") || host.endsWith("xiaohongshu.com") || host.endsWith("xhscdn.com")) {
-      return { kind: "social", platform: "xiaohongshu" };
-    }
-    if (host.endsWith("douyin.com") || host.endsWith("iesdouyin.com")) {
-      return { kind: "social", platform: "douyin" };
-    }
-    if (host.endsWith("weibo.com") || host.endsWith("weibo.cn")) {
-      return { kind: "social", platform: "weibo" };
-    }
-    if (host.endsWith("zhihu.com")) {
-      return { kind: "social", platform: "zhihu" };
-    }
-    if (host.endsWith("douban.com")) {
-      return { kind: "social", platform: "douban" };
-    }
-    if (host.endsWith("bilibili.com") || host.endsWith("b23.tv")) {
-      return { kind: "social", platform: "bilibili" };
-    }
-    if (host.endsWith("kuaishou.com")) {
-      return { kind: "social", platform: "kuaishou" };
-    }
-    if (host.endsWith("tiktok.com")) {
-      return { kind: "social", platform: "tiktok" };
-    }
-    if (host.endsWith("instagram.com")) {
-      return { kind: "social", platform: "instagram" };
-    }
-    if (host.endsWith("x.com") || host.endsWith("twitter.com")) {
-      return { kind: "social", platform: "x" };
-    }
-    if (host.endsWith("youtube.com") || host.endsWith("youtu.be")) {
-      return { kind: "social", platform: "youtube" };
-    }
-    if (host.endsWith("facebook.com")) {
-      return { kind: "social", platform: "facebook" };
-    }
-    if (host.endsWith("threads.net")) {
-      return { kind: "social", platform: "threads" };
-    }
-    if (host.endsWith("reddit.com")) {
-      return { kind: "social", platform: "reddit" };
-    }
-    if (host.endsWith("t.me") || host.endsWith("telegram.me") || host.endsWith("telegram.org")) {
-      return { kind: "social", platform: "telegram" };
-    }
-  } catch {
-    // ignore invalid urls
-  }
-  return { kind: "web", platform: "web" };
 }
 
 function isLikelyClientRenderedHtml(html: string): boolean {

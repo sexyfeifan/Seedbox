@@ -51,13 +51,13 @@
 
 ## 🚀 最新版本
 
-- 当前版本：`v0.1.68`
+- 当前版本：`v0.1.69`
 - Docker 镜像：
-  - `sexyfeifan/seedbox-backend:v0.1.68`
-  - `sexyfeifan/seedbox-parser-worker:v0.1.68`
+  - `sexyfeifan/seedbox-backend:v0.1.69`
+  - `sexyfeifan/seedbox-parser-worker:v0.1.69`
 - 最新发布目录：
-  - `releases/v0.1.68/docker-compose.yml`
-  - `releases/v0.1.68/.env.template`
+  - `releases/v0.1.69/docker-compose.yml`
+  - `releases/v0.1.69/.env.template`
 
 ---
 
@@ -84,8 +84,8 @@
 
 推荐直接使用发布目录里的文件：
 
-- compose 文件：`releases/v0.1.68/docker-compose.yml`
-- 环境变量模板：`releases/v0.1.68/.env.template`
+- compose 文件：`releases/v0.1.69/docker-compose.yml`
+- 环境变量模板：`releases/v0.1.69/.env.template`
 
 建议做法：
 
@@ -336,6 +336,19 @@ WORKER_MODE=api API_BASE_URL=http://127.0.0.1:12333 node dist/main.js
 
 ## 📦 版本与发布
 
+### `v0.1.69`
+
+- 解析引擎增强：Playwright 浏览器池化复用，减少冷启动开销
+- 失败重试机制：指数退避重试（默认 3 次，5s→10s→20s）
+- yt-dlp 视频归档：支持 B站/YouTube/抖音等 1000+ 站点视频下载
+- monolith 全页归档：保存完整可离线浏览的 HTML 页面
+- 页面截图保存：Playwright 渲染后自动保存全页截图
+- 平台检测模块化：从 worker.ts 拆分为独立 platform-detector.ts
+- 共享工具函数：统一 utils.ts，消除跨文件重复代码
+- 认证速率限制：10 次/15 分钟滑动窗口，防止暴力破解
+- 内存泄漏修复：sync dedup set 定期清理，summary timer 正确释放
+- Docker Compose 改进：health 条件依赖、CORS/JWT 环境变量透传
+
 ### `v0.1.68`
 
 - Web UI 全面采用动森风格（Animal Crossing Island Theme）
@@ -373,6 +386,6 @@ WORKER_MODE=api API_BASE_URL=http://127.0.0.1:12333 node dist/main.js
 
 如果你只是想 **最快部署最新版本**，只需要一个文件就够了：
 
-- `releases/v0.1.68/docker-compose.yml`
+- `releases/v0.1.69/docker-compose.yml`
 
 把你的挂载路径改一下，然后 `docker compose up -d` 即可。
