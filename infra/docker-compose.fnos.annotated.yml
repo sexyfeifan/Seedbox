@@ -1,9 +1,9 @@
-# Seedbox v0.1.70 服务端部署示例（逐项中文注释版）
+# Seedbox v0.1.71 服务端部署示例（逐项中文注释版）
 services:
   # 后端 API 服务：负责收藏写入、列表读取、详情接口、媒体代理、Web 页面等
   seedbox-backend:
     # 后端镜像版本，建议与 parser-worker 保持一致
-    image: sexyfeifan/seedbox-backend:v0.1.70
+    image: sexyfeifan/seedbox-backend:v0.1.71
     # 容器名称，方便在宿主机上排查日志
     container_name: seedbox-backend
     # 容器异常退出后自动重启，除非手动停止
@@ -34,11 +34,11 @@ services:
       # 商业模式开关；普通自用可保持 false
       COMMERCIAL_MODE_ENABLED: ${COMMERCIAL_MODE_ENABLED:-false}
       # 当前统一发布版本号，仅作版本标识展示
-      SEEDBOX_RELEASE_VERSION: ${SEEDBOX_RELEASE_VERSION:-v0.1.70}
+      SEEDBOX_RELEASE_VERSION: ${SEEDBOX_RELEASE_VERSION:-v0.1.71}
       # 后端版本号，建议与 release 版本保持一致
-      SEEDBOX_BACKEND_VERSION: ${SEEDBOX_BACKEND_VERSION:-v0.1.70}
+      SEEDBOX_BACKEND_VERSION: ${SEEDBOX_BACKEND_VERSION:-v0.1.71}
       # 解析器版本号，建议与 release 版本保持一致
-      SEEDBOX_PARSER_VERSION: ${SEEDBOX_PARSER_VERSION:-v0.1.70}
+      SEEDBOX_PARSER_VERSION: ${SEEDBOX_PARSER_VERSION:-v0.1.71}
       # 捕获入口解析分享链接的超时时间（毫秒）
       CAPTURE_RESOLVE_TIMEOUT_MS: ${CAPTURE_RESOLVE_TIMEOUT_MS:-12000}
       # 后端回源抓媒体资源的超时时间（毫秒）
@@ -68,7 +68,7 @@ services:
   # 解析 worker：负责轮询待解析任务并抓取正文/图片/视频
   seedbox-parser-worker:
     # 解析器镜像版本，必须与后端版本配套
-    image: sexyfeifan/seedbox-parser-worker:v0.1.70
+    image: sexyfeifan/seedbox-parser-worker:v0.1.71
     # 容器名称，方便查看日志
     container_name: seedbox-parser-worker
     # 容器异常退出后自动重启
@@ -89,7 +89,7 @@ services:
       # 与后端一致的内部通信令牌
       INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-seedbox-dev-token}
       # parser 自身版本标识
-      SEEDBOX_PARSER_VERSION: ${SEEDBOX_PARSER_VERSION:-v0.1.70}
+      SEEDBOX_PARSER_VERSION: ${SEEDBOX_PARSER_VERSION:-v0.1.71}
       # 轮询待解析任务的间隔（毫秒）
       WORKER_POLL_INTERVAL_MS: 3000
       # 失败任务最大重试次数
