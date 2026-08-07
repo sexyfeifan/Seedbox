@@ -1081,6 +1081,74 @@ body:not(.detail-edit-mode) .asset-delete-btn { display: none; }
 }
 .detail-content-text p:last-child { margin-bottom: 0; }
 
+.detail-content-html {
+  font-size: 15px;
+  line-height: 1.75;
+  color: var(--ink-body);
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+.detail-content-html h1 { font-size: 22px; font-weight: 800; margin: 20px 0 10px; color: var(--ink); }
+.detail-content-html h2 { font-size: 19px; font-weight: 700; margin: 18px 0 8px; color: var(--ink); }
+.detail-content-html h3 { font-size: 17px; font-weight: 700; margin: 16px 0 6px; color: var(--ink); }
+.detail-content-html h4, .detail-content-html h5, .detail-content-html h6 { font-size: 15px; font-weight: 700; margin: 14px 0 6px; color: var(--ink); }
+.detail-content-html p { margin: 0 0 12px; }
+.detail-content-html a { color: var(--accent-active); text-decoration: underline; text-underline-offset: 2px; }
+.detail-content-html a:hover { color: var(--accent); }
+.detail-content-html ul, .detail-content-html ol { margin: 0 0 12px; padding-left: 24px; }
+.detail-content-html li { margin-bottom: 4px; }
+.detail-content-html blockquote {
+  margin: 12px 0;
+  padding: 10px 14px;
+  border-left: 3px solid var(--accent);
+  background: var(--accent-bg);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  color: var(--ink-body);
+}
+.detail-content-html pre {
+  margin: 12px 0;
+  padding: 12px;
+  background: #2d2d2d;
+  color: #f8f8f2;
+  border-radius: var(--radius-sm);
+  overflow-x: auto;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.detail-content-html code {
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 0.9em;
+  background: var(--bg-secondary);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+.detail-content-html pre code {
+  background: none;
+  padding: 0;
+  font-size: inherit;
+}
+.detail-content-html img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-sm);
+  margin: 8px 0;
+}
+.detail-content-html table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0;
+  font-size: 14px;
+}
+.detail-content-html th, .detail-content-html td {
+  border: 1px solid var(--line);
+  padding: 8px 10px;
+  text-align: left;
+}
+.detail-content-html th { background: var(--bg-secondary); font-weight: 700; }
+.detail-content-html hr { border: none; border-top: 1px solid var(--line); margin: 16px 0; }
+.detail-content-html details { margin: 12px 0; }
+.detail-content-html summary { cursor: pointer; font-weight: 600; color: var(--ink); }
+
 /* ── Detail edit toolbar ── */
 .detail-edit-toolbar {
   position: fixed;

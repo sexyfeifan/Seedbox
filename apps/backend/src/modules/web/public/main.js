@@ -140,6 +140,7 @@ const imageViewerNext = document.getElementById("image-viewer-next");
 let currentItemId = null;
 let currentItem = null;
 let currentDetailText = "";
+let currentDetailHtml = "";
 let currentDetailAssets = [];
 let currentDetailArchived = false;
 let currentDetailMode = DETAIL_MODE_BROWSE;
@@ -2603,6 +2604,7 @@ async function openDetail(itemId, { syncRoute = true, replaceRoute = false, mode
       ? sanitizeExcerptText(item.plainText, { preserveNewlines: true })
       : "";
   currentDetailText = normalizedDetailText || String(item.excerpt || "").trim() || displayTopic(item) || detailPlaceholder(item.status);
+  currentDetailHtml = String(item.htmlContent || "").trim();
   currentDetailAssets = Array.isArray(item.assets) ? item.assets : [];
 
   detailEditTitle.value = item.title || "";
@@ -2627,6 +2629,7 @@ function hideDetail({ syncRoute = true, replaceRoute = false } = {}) {
   currentItemId = null;
   currentItem = null;
   currentDetailText = "";
+  currentDetailHtml = "";
   currentDetailAssets = [];
   currentDetailArchived = false;
   currentDetailMode = DETAIL_MODE_BROWSE;
@@ -2657,6 +2660,16 @@ function switchDetailMode(mode, { replaceRoute = false } = {}) {
 }
 
 function renderDetailContent() {
+  const platform = currentItem ? normalizeItemPlatform(currentItem).id : "web";
+  const isWebPage = platform === "web";
+
+  if (isWebPage && currentDetailHtml) {
+    detailContent.innerHTML = sanitizeHtmlForDisplay(currentDetailHtml);
+    detailContent.classList.add("detail-content-html");
+    return;
+  }
+
+  detailContent.classList.remove("detail-content-html");
   const text = String(currentDetailText || "").trim();
   if (!text) {
     detailContent.innerHTML = "";
@@ -3288,6 +3301,61 @@ function escapeHtml(input) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+function sanitizeHtmlForDisplay(html) {
+  const tmp = document.createElement("div");
+  tmp.innerHTML = html;
+  const allowedTags = new Set([
+    "h1", "h2", "h3", "h4", "h5", "h6",
+    "p", "br", "hr",
+    "ul", "ol", "li",
+    "a", "strong", "b", "em", "i", "u", "s", "del", "mark", "sub", "sup",
+    "blockquote", "pre", "code",
+    "table", "thead", "tbody", "tr", "th", "td",
+    "img", "figure", "figcaption",
+    "details", "summary",
+    "div", "span", "section", "article", "header", "footer", "nav", "main",
+    "abbr", "kbd", "time"
+  ]);
+  const allowedAttrs = new Set(["href", "src", "alt", "title", "class", "colspan", "rowspan", "datetime", "start", "type", "reversed", "open"]);
+  const walker = document.createTreeWalker(tmp, NodeFilter.SHOW_ELEMENT);
+  const toRemove = [];
+  while (walker.nextNode()) {
+    const el = walker.currentNode;
+    const tag = el.tagName.toLowerCase();
+    if (!allowedTags.has(tag)) {
+      toRemove.push(el);
+      continue;
+    }
+    for (const attr of Array.from(el.attributes)) {
+      if (!allowedAttrs.has(attr.name.toLowerCase())) {
+        el.removeAttribute(attr.name);
+      }
+      if (attr.name.toLowerCase() === "href" || attr.name.toLowerCase() === "src") {
+        const val = attr.value.trim().toLowerCase();
+        if (val.startsWith("javascript:") || val.startsWith("data:") || val.startsWith("vbscript:")) {
+          el.removeAttribute(attr.name);
+        }
+      }
+    }
+    if (tag === "a") {
+      el.setAttribute("target", "_blank");
+      el.setAttribute("rel", "noopener noreferrer");
+    }
+    if (tag === "img") {
+      el.setAttribute("loading", "lazy");
+      el.removeAttribute("onerror");
+      el.removeAttribute("onload");
+    }
+  }
+  for (const el of toRemove) {
+    while (el.firstChild) {
+      el.parentNode.insertBefore(el.firstChild, el);
+    }
+    el.remove();
+  }
+  return tmp.innerHTML;
 }
 
 function isIosDevice() {
