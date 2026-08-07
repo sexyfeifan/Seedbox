@@ -51,13 +51,13 @@
 
 ## 🚀 最新版本
 
-- 当前版本：`v0.1.72`
+- 当前版本：`v0.1.73`
 - Docker 镜像：
-  - `sexyfeifan/seedbox-backend:v0.1.72`
-  - `sexyfeifan/seedbox-parser-worker:v0.1.72`
+  - `sexyfeifan/seedbox-backend:v0.1.73`
+  - `sexyfeifan/seedbox-parser-worker:v0.1.73`
 - 最新发布目录：
-  - `releases/v0.1.72/docker-compose.yml`
-  - `releases/v0.1.72/.env.template`
+  - `releases/v0.1.73/docker-compose.yml`
+  - `releases/v0.1.73/.env.template`
 
 ---
 
@@ -84,8 +84,8 @@
 
 推荐直接使用发布目录里的文件：
 
-- compose 文件：`releases/v0.1.72/docker-compose.yml`
-- 环境变量模板：`releases/v0.1.72/.env.template`
+- compose 文件：`releases/v0.1.73/docker-compose.yml`
+- 环境变量模板：`releases/v0.1.73/.env.template`
 
 建议做法：
 
@@ -336,7 +336,7 @@ WORKER_MODE=api API_BASE_URL=http://127.0.0.1:12333 node dist/main.js
 
 ## 📦 版本与发布
 
-### `v0.1.72`
+### `v0.1.73`
 
 - 编辑正文：详情页编辑模式支持修改文字内容并保存
 - 删除单张图片：编辑模式下每张图片显示 ✕ 按钮，可单独删除
@@ -386,6 +386,6 @@ WORKER_MODE=api API_BASE_URL=http://127.0.0.1:12333 node dist/main.js
 
 如果你只是想 **最快部署最新版本**，只需要一个文件就够了：
 
-- `releases/v0.1.72/docker-compose.yml`
+- `releases/v0.1.73/docker-compose.yml`
 
 把你的挂载路径改一下，然后 `docker compose up -d` 即可。
