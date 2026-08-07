@@ -3242,11 +3242,11 @@ function assetDedupKey(url: string): string {
     }
     if (looksLikeVideoPath(cleanedPath)) {
       if (XHS_VIDEO_HOST_PATTERN.test(host)) {
-        const mediaId = extractStableMediaId(`${cleanedPath}${rawSearch}`);
+        const mediaId = extractStableMediaId(cleanedPath);
         if (mediaId) {
           return `video:xhs:${mediaId}`;
         }
-        return `video:${host}${cleanedPath.replace(/\/+$/u, "")}`;
+        return `video:xhs:${host}${cleanedPath.replace(/\/+$/u, "")}`;
       }
       const mediaId = extractStableMediaId(`${cleanedPath}${rawSearch}`);
       if (mediaId) {
@@ -3741,7 +3741,7 @@ function normalizeVideoAssets(candidates: ParseAsset[], sourceUrl: string): Pars
   }
   const list = [...deduped.values()];
   if (isXhsHostFromUrl(sourceUrl) && list.length > 1) {
-    return list.slice(0, 3);
+    return list.slice(0, 1);
   }
   if (isDouyinHostFromUrl(sourceUrl) && list.length > 1) {
     return list.slice(0, 3);
