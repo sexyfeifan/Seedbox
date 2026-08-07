@@ -68,10 +68,12 @@ export function parseWithReadability(sourceUrl: string, html: string): ParseResu
     siteSpecific.strictMediaFromSite === true
   );
   const normalizedVideos = normalizeVideoAssets(videoAssets, sourceUrl);
+  const videoDedupKeys = new Set(normalizedVideos.map((v) => assetDedupKey(v.url)));
+  const filteredImages = imageAssets.filter((img) => !videoDedupKeys.has(assetDedupKey(img.url)));
   const maxImageCount = Math.max(0, MAX_PARSED_ASSETS - normalizedVideos.length);
   const xhsVideoImageCap = siteSpecific.site === "xhs" && normalizedVideos.length > 0 ? Math.min(maxImageCount, 8) : maxImageCount;
   const douyinVideoImageCap = siteSpecific.site === "douyin" && normalizedVideos.length > 0 ? 2 : xhsVideoImageCap;
-  const parsedAssets = [...imageAssets.slice(0, Math.min(maxImageCount, douyinVideoImageCap)), ...normalizedVideos].slice(
+  const parsedAssets = [...filteredImages.slice(0, Math.min(maxImageCount, douyinVideoImageCap)), ...normalizedVideos].slice(
     0,
     MAX_PARSED_ASSETS
   );
