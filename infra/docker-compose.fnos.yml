@@ -1,6 +1,6 @@
 services:
   seedbox-backend:
-    image: sexyfeifan/seedbox-backend:v0.1.73
+    image: sexyfeifan/seedbox-backend:v0.1.74
     container_name: seedbox-backend
     restart: unless-stopped
     environment:
@@ -16,9 +16,9 @@ services:
       INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-seedbox-dev-token}
       CLIENT_ACCESS_TOKEN: ${CLIENT_ACCESS_TOKEN:-}
       COMMERCIAL_MODE_ENABLED: ${COMMERCIAL_MODE_ENABLED:-false}
-      SEEDBOX_RELEASE_VERSION: ${SEEDBOX_RELEASE_VERSION:-v0.1.73}
-      SEEDBOX_BACKEND_VERSION: ${SEEDBOX_BACKEND_VERSION:-v0.1.73}
-      SEEDBOX_PARSER_VERSION: ${SEEDBOX_PARSER_VERSION:-v0.1.73}
+      SEEDBOX_RELEASE_VERSION: ${SEEDBOX_RELEASE_VERSION:-v0.1.74}
+      SEEDBOX_BACKEND_VERSION: ${SEEDBOX_BACKEND_VERSION:-v0.1.74}
+      SEEDBOX_PARSER_VERSION: ${SEEDBOX_PARSER_VERSION:-v0.1.74}
       CAPTURE_RESOLVE_TIMEOUT_MS: ${CAPTURE_RESOLVE_TIMEOUT_MS:-12000}
       ASSET_FETCH_TIMEOUT_MS: ${ASSET_FETCH_TIMEOUT_MS:-30000}
       EXTRA_NOISE_ASSET_PATTERNS: ${EXTRA_NOISE_ASSET_PATTERNS:-}
@@ -35,7 +35,7 @@ services:
       retries: 10
 
   seedbox-parser-worker:
-    image: sexyfeifan/seedbox-parser-worker:v0.1.73
+    image: sexyfeifan/seedbox-parser-worker:v0.1.74
     container_name: seedbox-parser-worker
     restart: unless-stopped
     depends_on:
@@ -47,7 +47,7 @@ services:
       WORKER_MODE: api
       API_BASE_URL: http://seedbox-backend:12333
       INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-seedbox-dev-token}
-      SEEDBOX_PARSER_VERSION: ${SEEDBOX_PARSER_VERSION:-v0.1.73}
+      SEEDBOX_PARSER_VERSION: ${SEEDBOX_PARSER_VERSION:-v0.1.74}
       WORKER_POLL_INTERVAL_MS: 3000
       WORKER_MAX_RETRIES: ${WORKER_MAX_RETRIES:-3}
       WORKER_BACKOFF_BASE_MS: ${WORKER_BACKOFF_BASE_MS:-5000}

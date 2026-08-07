@@ -49,7 +49,7 @@ async function runWithRetry(job: ParseJob, maxRetries: number): Promise<import("
 }
 
 async function main() {
-  const workerVersion = (process.env.SEEDBOX_PARSER_VERSION ?? "v0.1.73").trim() || "v0.1.73";
+  const workerVersion = (process.env.SEEDBOX_PARSER_VERSION ?? "v0.1.74").trim() || "v0.1.74";
   const sample = process.env.SAMPLE_JOB;
   if (sample) {
     const job = parseJobSchema.parse(JSON.parse(sample));
